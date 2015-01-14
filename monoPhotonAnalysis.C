@@ -2,7 +2,6 @@
 #include "monoPhotonAnalysis.h"
 #include <cstdio>
 #include <iostream>
-#include <iomanip>
 #include <map>
 #include <TH2.h>
 #include <TStyle.h>
@@ -20,7 +19,7 @@ void monoPhotonAnalysis::Loop()
    for (Long64_t jentry=0; jentry<nentries;jentry++) {
       Long64_t ientry = LoadTree(jentry);
       if (ientry < 0) break;
-      if ( ientry % 10000 == 0 ) printf("Processed %7lld / %7lld events (% 2.1f\%)\n", jentry, nentries, jentry*100./nentries);
+      if ( ientry % 10000 == 0 ) printf("Processed %7lld / %7lld events (% 2.1f%%)\n", jentry, nentries, jentry*100./nentries);
       nb = fChain->GetEntry(jentry);   nbytes += nb;
 
       // first medium photon cut
@@ -40,7 +39,7 @@ void monoPhotonAnalysis::Loop()
       // Veto event if electron or muon
       if ( electronVeto(selectedPhoton) ) continue;
       cutFlow["electron veto"]++;
-      // if ( muonVeto(selectedPhoton) ) continue;
+      if ( muonVeto(selectedPhoton) ) continue;
       cutFlow["muon veto"]++;
 
       // -----  End Cut Selection -----
@@ -48,10 +47,6 @@ void monoPhotonAnalysis::Loop()
    }
    std::cout << "Passed " << npassed << " events out of " << nentries << std::endl;
    std::cout << "Cut flow summary --------" << std::endl;
-   for(const auto cut : cutFlow)
-   {
-     std::cout << setw(30) << cut.first << " : " << cut.second << " events passed." << std::endl;
-   }
 }
 
 bool monoPhotonAnalysis::HasMediumPhoton(int& photonNo)
@@ -73,7 +68,7 @@ bool monoPhotonAnalysis::HasMediumPhoton(int& photonNo)
     float chi = ( kUseWorstChIso ) ? phoPFChWorstIso->at(i) : phoPFChIso->at(i);
     float effectiveAreaLowEta = ( kUseWorstChIso ) ? 0.075 : 0.012;
     float effectiveAreaHighEta = ( kUseWorstChIso ) ? 0.0617 : 0.010;
-    bool rhoCorrPFchi     = ( (phoEta->at(i) < 1.) ? max(chi-rho*effectiveAreaLowEta, 0.) : max(chi-rho*effectiveAreaHighEta, 0.) ) < 1.2;
+    bool rhoCorrPFchi     = ( (phoEta->at(i) < 1.) ? max(chi-rho*effectiveAreaLowEta, 0.f) : max(chi-rho*effectiveAreaHighEta, 0.f) ) < 1.2;
     bool rhoCorrPFnhi     = ( (phoEta->at(i) < 1.) ? max(phoPFNeuIso->at(i)-rho*0.030, 0.) : max(phoPFNeuIso->at(i)-rho*0.057, 0.) ) < 1.+0.04*phoEt->at(i);
     bool rhoCorrPFphoi    = ( (phoEta->at(i) < 1.) ? max(phoPFPhoIso->at(i)-rho*0.148, 0.) : max(phoPFPhoIso->at(i)-rho*0.130, 0.) ) < 0.7+0.005*phoEt->at(i);
 
@@ -158,7 +153,37 @@ bool monoPhotonAnalysis::electronVeto(const int photonNo)
 
 bool monoPhotonAnalysis::muonVeto(const int photonNo)
 {
-  return true;
+  for ( int i=0; i < nMu; i++ )
+  {
+    // a) muon Pt > 10
+    // b) muon Isolation Track / muon Pt < 0.10
+    // c) muon Chi2/NDF < 10
+    // d) muon hits > 0
+    // e) muon pixel hits > 0
+    // f) muon Stations > 1
+    // g) muon D0 < 0.2
+    // h) muon Dz < 0.5
+    // i) muon Track Layers > 5
+    if ( muPt->at(i) < 10. ) continue;
+    if ( muIsoTrk->at(i) / muPt->at(i) > 0.1 ) continue;
+    if ( muChi2NDF->at(i) >= 10 ) continue;
+    if ( muMuonHits->at(i) == 0 ) continue;
+    if ( muPixelHits->at(i) == 0 ) continue;
+    if ( muStations->at(i) <= 1 ) continue;
+    if ( fabs(muD0->at(i)) > 0.2 ) continue;
+    if ( fabs(muDz->at(i)) > 0.5 ) continue;
+    if ( muTrkLayers->at(i) <= 5 ) continue;
+
+    // If muon overlaps good photon, skip
+    float deltaR = sqrt( pow(deltaPhi(elePhi->at(i), phoPhi->at(photonNo)),2) + pow(eleEta->at(i)-phoEta->at(photonNo),2) );
+    if ( deltaR < 0.5 ) continue;
+
+    // We found a good muon that doesn't overlap the selected photon, veto
+    return true;
+  }
+
+  // No good muons
+  return false;
 }
 
 float monoPhotonAnalysis::deltaPhi(float phi1, float phi2)

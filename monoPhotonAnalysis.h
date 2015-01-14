@@ -14,8 +14,33 @@
 
 // Header file for the classes stored in the TTree if any.
 #include <vector>
+#include <iomanip>
 
 // Fixed size dimensions of array or collections stored in the TTree if any.
+
+// Compact class to make cut flow a bit easier
+/*
+class CutFlow
+{
+  public:
+    CutFlow();
+    virtual ~CutFlow();
+
+    void increment(std::string label) { if ( counts[label]++ == 1 ) order.push_back(label); };
+    friend std::ostream& operator<<(std::ostream& os, CutFlow& flow)
+    {
+      for(const auto label : flow.order)
+      {
+        os << setw(30) << label << " : " << flow.counts[label] << " events passed." << std::endl;
+      }
+      return os;
+    };
+
+  private:
+    std::map<std::string, long> counts;
+    std::vector<std::string> order;
+};
+*/
 
 class monoPhotonAnalysis {
 public :
