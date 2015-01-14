@@ -6,29 +6,6 @@
 
 void monoPhotonAnalysis::Loop()
 {
-//   In a ROOT session, you can do:
-//      Root > .L monoPhotonAnalysis.C
-//      Root > monoPhotonAnalysis t
-//      Root > t.GetEntry(12); // Fill t data members with entry number 12
-//      Root > t.Show();       // Show values of entry 12
-//      Root > t.Show(16);     // Read and show values of entry 16
-//      Root > t.Loop();       // Loop on all entries
-//
-
-//     This is the loop skeleton where:
-//    jentry is the global entry number in the chain
-//    ientry is the entry number in the current Tree
-//  Note that the argument to GetEntry must be:
-//    jentry for TChain::GetEntry
-//    ientry for TTree::GetEntry and TBranch::GetEntry
-//
-//       To read only selected branches, Insert statements like:
-// METHOD1:
-//    fChain->SetBranchStatus("*",0);  // disable all branches
-//    fChain->SetBranchStatus("branchname",1);  // activate branchname
-// METHOD2: replace line
-//    fChain->GetEntry(jentry);       //read all branches
-//by  b_branchname->GetEntry(ientry); //read only this branch
    if (fChain == 0) return;
 
    Long64_t nentries = fChain->GetEntriesFast();
@@ -40,4 +17,44 @@ void monoPhotonAnalysis::Loop()
       nb = fChain->GetEntry(jentry);   nbytes += nb;
       // if (Cut(ientry) < 0) continue;
    }
+}
+
+bool monoPhotonAnalysis::HasMediumPhoton(int& photonNo)
+{
+  int nMediumPhotons = 0;
+
+  for (int i = 0; i < nPho; i++) {
+
+    bool etCut            = phoEt->at           (i)  > 100.0;
+    bool scEtaCut         = fabs(phoSCEta->at   (i)) <   1.4442;
+    bool hOverECut        = phoHoverE->at       (i)  <   0.05;
+    bool sigmaIEtaIEtaCut = phoSigmaIEtaIEta->at(i)  >   0.001 &&
+                            phoSigmaIEtaIEta->at(i)  <   0.011;
+    bool sigmaIPhiIPhiCut = phoSigmaIPhiIPhi->at(i)  >   0.001;
+    bool pixelSeedCut     = phohasPixelSeed->at (i)  ==  0;
+    bool r9Cut            = phoR9->at           (i)  <   1.0;
+    auto rhoCorrection = [&](float var, float eta)
+    {
+      // Just barrel, only need the two
+      if ( fabs(eta) < 1. )
+        return max(var-rho*0.148, 0.);
+      else if ( fabs(eta) < 1.479 )
+        return max(var-rho*0.130, 0.);
+      return 0.;
+    };
+    bool rhoCorrPFchi     = rhoCorrection(phoPFChIso->at(i), phoEta->at(i)) < 1.2;
+    bool rhoCorrPFnhi     = rhoCorrection(phoPFNeuIso->at(i), phoEta->at(i)) < 1.+0.04*phoEt->at(i);
+    bool rhoCorrPFphoi    = rhoCorrection(phoPFPhoIso->at(i), phoEta->at(i)) < 0.7+0.005*phoEt->at(i);
+
+    bool isMediumPhoton = etCut            && scEtaCut         &&  hOverECut   &&
+                          sigmaIEtaIEtaCut && sigmaIPhiIPhiCut && pixelSeedCut && 
+                          r9Cut && rhoCorrPFchi && rhoCorrPFnhi && rhoCorrPFphoi;
+
+    if (isMediumPhoton) {
+      nMediumPhotons++;
+      photonNo = i;
+    }
+  }
+
+  return nMediumPhotons == 1;
 }
