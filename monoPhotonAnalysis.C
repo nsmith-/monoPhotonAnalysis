@@ -199,7 +199,7 @@ bool monoPhotonAnalysis::isIsolatedPhoton(int i)
     return max(naiveIso - this->rho*getPhotonEffectiveArea(isoParticle, i), 0.);
   };
 
-  bool isolatedFromCH = correctedIso(phoPFChWorstIso->at(i), "worst charged hadron") < MED_CH_HADRON_ISO;
+  bool isolatedFromCH = correctedIso(phoPFChWorstIso->at(i), ( kUseWorstChIso ) ? "worst charged hadron" : "charged hadron" ) < MED_CH_HADRON_ISO;
   bool isolatedFromNH = correctedIso(phoPFNeuIso->at(i), "neutral hadron") < MED_NEU_HADRON_ISO;
   bool isolatedFromPho = correctedIso(phoPFPhoIso->at(i), "photon") < MED_PHOTON_ISO;
 
