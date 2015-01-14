@@ -32,8 +32,7 @@ void monoPhotonAnalysis::Loop()
       cutFlow["pfMET > 90"]++;
 
       // photon and MET should be back to back
-
-      if ( deltaPhi(pfMETPhi, phoPhi->at(selectedPhoton)) < 2. ) continue;
+      if ( fabs(deltaPhi(pfMETPhi, phoPhi->at(selectedPhoton))) < 2. ) continue;
       cutFlow["deltaPhi"]++;
 
       // Veto event if electron or muon
