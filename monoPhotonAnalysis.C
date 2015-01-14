@@ -47,6 +47,7 @@ void monoPhotonAnalysis::Loop()
    }
    std::cout << "Passed " << npassed << " events out of " << nentries << std::endl;
    std::cout << "Cut flow summary --------" << std::endl;
+   for ( const auto& cut : cutFlow ) std::cout << setw(30) << cut.first << " : " << cut.second << " events passed." << std::endl;
 }
 
 bool monoPhotonAnalysis::HasMediumPhoton(int& photonNo)
@@ -68,9 +69,9 @@ bool monoPhotonAnalysis::HasMediumPhoton(int& photonNo)
     float chi = ( kUseWorstChIso ) ? phoPFChWorstIso->at(i) : phoPFChIso->at(i);
     float effectiveAreaLowEta = ( kUseWorstChIso ) ? 0.075 : 0.012;
     float effectiveAreaHighEta = ( kUseWorstChIso ) ? 0.0617 : 0.010;
-    bool rhoCorrPFchi     = ( (phoEta->at(i) < 1.) ? max(chi-rho*effectiveAreaLowEta, 0.f) : max(chi-rho*effectiveAreaHighEta, 0.f) ) < 1.2;
-    bool rhoCorrPFnhi     = ( (phoEta->at(i) < 1.) ? max(phoPFNeuIso->at(i)-rho*0.030, 0.) : max(phoPFNeuIso->at(i)-rho*0.057, 0.) ) < 1.+0.04*phoEt->at(i);
-    bool rhoCorrPFphoi    = ( (phoEta->at(i) < 1.) ? max(phoPFPhoIso->at(i)-rho*0.148, 0.) : max(phoPFPhoIso->at(i)-rho*0.130, 0.) ) < 0.7+0.005*phoEt->at(i);
+    bool rhoCorrPFchi     = ( (phoSCEta->at(i) < 1.) ? max(chi-rho*effectiveAreaLowEta, 0.f) : max(chi-rho*effectiveAreaHighEta, 0.f) ) < 1.2;
+    bool rhoCorrPFnhi     = ( (phoSCEta->at(i) < 1.) ? max(phoPFNeuIso->at(i)-rho*0.030, 0.) : max(phoPFNeuIso->at(i)-rho*0.057, 0.) ) < 1.+0.04*phoEt->at(i);
+    bool rhoCorrPFphoi    = ( (phoSCEta->at(i) < 1.) ? max(phoPFPhoIso->at(i)-rho*0.148, 0.) : max(phoPFPhoIso->at(i)-rho*0.130, 0.) ) < 0.7+0.005*phoEt->at(i);
 
     bool isMediumPhoton = etCut            && scEtaCut         &&  hOverECut   &&
                           sigmaIEtaIEtaCut && sigmaIPhiIPhiCut && pixelSeedCut && 
@@ -140,7 +141,7 @@ bool monoPhotonAnalysis::electronVeto(const int photonNo)
     }
 
     // If electron overlaps good photon, skip
-    float deltaR = sqrt( pow(deltaPhi(elePhi->at(i), phoPhi->at(photonNo)),2) + pow(eleEta->at(i)-phoEta->at(photonNo),2) );
+    float deltaR = sqrt( pow(deltaPhi(elePhi->at(i), phoPhi->at(photonNo)),2) + pow(eleEta->at(i)-phoSCEta->at(photonNo),2) );
     if ( deltaR < 0.5 ) continue;
 
     // We found a good electron that doesn't overlap the selected photon, veto
@@ -175,7 +176,7 @@ bool monoPhotonAnalysis::muonVeto(const int photonNo)
     if ( muTrkLayers->at(i) <= 5 ) continue;
 
     // If muon overlaps good photon, skip
-    float deltaR = sqrt( pow(deltaPhi(elePhi->at(i), phoPhi->at(photonNo)),2) + pow(eleEta->at(i)-phoEta->at(photonNo),2) );
+    float deltaR = sqrt( pow(deltaPhi(elePhi->at(i), phoPhi->at(photonNo)),2) + pow(eleEta->at(i)-phoSCEta->at(photonNo),2) );
     if ( deltaR < 0.5 ) continue;
 
     // We found a good muon that doesn't overlap the selected photon, veto
