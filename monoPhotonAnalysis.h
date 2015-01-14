@@ -400,6 +400,8 @@ public :
    bool             electronVeto(const int photonNo);
    bool             muonVeto(const int photonNo);
    float            deltaPhi(float phi1, float phi2);
+   double getPhotonEffectiveArea(std::string isoParticle, int i);
+   bool isIsolatedPhoton(int i);
 
    // options
    bool kUseWorstChIso = true;
