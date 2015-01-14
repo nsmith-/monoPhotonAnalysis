@@ -1,414 +1,202 @@
-//////////////////////////////////////////////////////////
-// This class has been automatically generated on
-// Wed Jan 14 08:59:44 2015 by ROOT version 5.34/18
-// from TTree EventTree/Event data
-// found on file: /eos/uscms/store/user/weinberg/cmsdas2015/data.root
-//////////////////////////////////////////////////////////
+#include "monoPhotonAnalyzer.h"
+#include "CutFlow.h"
+#include <cstdio>
+#include <cmath>
+#include <iostream>
+#include <map>
+#include <TH2.h>
+#include <TStyle.h>
+#include <TCanvas.h>
 
-#ifndef monoPhotonAnalysis_h
-#define monoPhotonAnalysis_h
-
-#include <TROOT.h>
-#include <TChain.h>
-#include <TFile.h>
-
-// Header file for the classes stored in the TTree if any.
-#include <vector>
-#include <iomanip>
-
-// Fixed size dimensions of array or collections stored in the TTree if any.
-
-// Compact class to make cut flow a bit easier
-/*
-class CutFlow
+void monoPhotonAnalyzer::Loop()
 {
-  public:
-    CutFlow();
-    virtual ~CutFlow();
+   if (fChain == 0) return;
 
-    void increment(std::string label) { if ( counts[label]++ == 1 ) order.push_back(label); };
-    friend std::ostream& operator<<(std::ostream& os, CutFlow& flow)
+   Long64_t nentries = fChain->GetEntriesFast();
+   Long64_t npassed = 0;
+   std::map<std::string, long> cutFlow;
+
+   Long64_t nbytes = 0, nb = 0;
+   for (Long64_t jentry=0; jentry<nentries;jentry++) {
+      Long64_t ientry = LoadTree(jentry);
+      if (ientry < 0) break;
+      if ( ientry % 10000 == 0 ) printf("Processed %7lld / %7lld events (% 2.1f%%)\n", jentry, nentries, jentry*100./nentries);
+      nb = fChain->GetEntry(jentry);   nbytes += nb;
+
+      // first medium photon cut
+      int selectedPhoton = 0;
+      if ( !HasMediumPhoton(selectedPhoton) ) continue;
+      cutFlow["medium photon"]++;
+
+      // Make sure MET is significant
+      if ( pfMET < 90. ) continue;
+      cutFlow["pfMET > 90"]++;
+
+      // photon and MET should be back to back
+      if ( fabs(deltaPhi(pfMETPhi, phoPhi->at(selectedPhoton))) < 2. ) continue;
+      cutFlow["deltaPhi"]++;
+
+      // Veto event if electron or muon
+      if ( electronVeto(selectedPhoton) ) continue;
+      cutFlow["electron veto"]++;
+      if ( muonVeto(selectedPhoton) ) continue;
+      cutFlow["muon veto"]++;
+
+      // -----  End Cut Selection -----
+      npassed++;
+   }
+   std::cout << "Passed " << npassed << " events out of " << nentries << std::endl;
+   std::cout << "Cut flow summary --------" << std::endl;
+   for ( const auto& cut : cutFlow ) std::cout << std::setw(30) << cut.first << " : " << cut.second << " events passed." << std::endl;
+}
+
+bool monoPhotonAnalyzer::HasMediumPhoton(int& photonNo)
+{
+  int nMediumPhotons = 0;
+
+  for (int i = 0; i < nPho; i++) {
+
+    bool etCut            = phoEt->at           (i)  > 100.0;
+    bool scEtaCut         = fabs(phoSCEta->at   (i)) <   1.4442;
+    bool hOverECut        = phoHoverE->at       (i)  <   0.05;
+    bool sigmaIEtaIEtaCut = phoSigmaIEtaIEta->at(i)  >   0.001 &&
+                            phoSigmaIEtaIEta->at(i)  <   0.011;
+    bool sigmaIPhiIPhiCut = phoSigmaIPhiIPhi->at(i)  >   0.001;
+    bool pixelSeedCut     = phohasPixelSeed->at (i)  ==  0;
+    bool r9Cut            = phoR9->at           (i)  <   1.0;
+
+    // Only barrel photons, so only two bins in effective area
+    float chi = ( kUseWorstChIso ) ? phoPFChWorstIso->at(i) : phoPFChIso->at(i);
+    float effectiveAreaLowEta = ( kUseWorstChIso ) ? 0.075 : 0.012;
+    float effectiveAreaHighEta = ( kUseWorstChIso ) ? 0.0617 : 0.010;
+    bool rhoCorrPFchi     = ( (phoSCEta->at(i) < 1.) ? std::max(chi-rho*effectiveAreaLowEta, 0.f) : std::max(chi-rho*effectiveAreaHighEta, 0.f) ) < 1.5;
+    bool rhoCorrPFnhi     = ( (phoSCEta->at(i) < 1.) ? std::max(phoPFNeuIso->at(i)-rho*0.030, 0.) : std::max(phoPFNeuIso->at(i)-rho*0.057, 0.) ) < 1.+0.04*phoEt->at(i);
+    bool rhoCorrPFphoi    = ( (phoSCEta->at(i) < 1.) ? std::max(phoPFPhoIso->at(i)-rho*0.148, 0.) : std::max(phoPFPhoIso->at(i)-rho*0.130, 0.) ) < 0.7+0.005*phoEt->at(i);
+
+    bool isMediumPhoton = etCut            && scEtaCut         &&  hOverECut   &&
+                          sigmaIEtaIEtaCut && sigmaIPhiIPhiCut && pixelSeedCut && 
+                          r9Cut && rhoCorrPFchi && rhoCorrPFnhi && rhoCorrPFphoi;
+
+    if (isMediumPhoton) {
+      nMediumPhotons++;
+      photonNo = i;
+    }
+  }
+
+  return nMediumPhotons == 1;
+}
+
+bool monoPhotonAnalyzer::electronVeto(const int photonNo)
+{
+  for (int i=0; i < nEle; i++)
+  {
+    // at least 10GeV electron
+    if ( elePt->at(i) < 10. ) continue;
+
+    // electron PF Charged Hadron Isolation + max (0.0, electron PF Photon Isolation + electron PF Neutral Hadron Isolation - 0.5*electron PF PU Isolation)
+    float eleAbsIso = elePFChIso->at(i) + std::max(0., elePFPhoIso->at(i) + elePFNeuIso->at(i) - 0.5*elePFPUIso->at(i));
+
+    // Barrel and endcap quality criteria
+    if ( eleEta->at(i) < 1.479 ) 
     {
-      for(const auto label : flow.order)
-      {
-        os << setw(30) << label << " : " << flow.counts[label] << " events passed." << std::endl;
-      }
-      return os;
-    };
+      // i.   check  absolute electron dEtaAtVtx < 0.007
+      // ii.  check absolute electron dPhiAtVtx < 0.15 
+      // iii. check electron SigmaIEtaIEta_2012 < 0.01
+      // iv.  electron H/E < 0.12 
+      // v.   absolute value of electron D0 < 0.02
+      // vi.  absolute value of electron Dz < 0.2
+      // vii. electron EoverPInv < 0.05
+      // viii.electron MissHits <= 1   
+      // ix.  absolute isolation/electron Pt < 0.15 
+      if ( eledEtaAtVtx->at(i) > 0.007 ) continue;
+      if ( eledPhiAtVtx->at(i) > 0.15 ) continue;
+      if ( eleSigmaIEtaIEta_2012->at(i) > 0.01 ) continue;
+      if ( eleHoverE->at(i) > 0.12 ) continue;
+      if ( fabs(eleD0->at(i)) > 0.02 ) continue;
+      if ( fabs(eleDz->at(i)) > 0.2 ) continue;
+      if ( eleEoverPInv->at(i) > 0.05 ) continue;
+      if ( eleMissHits->at(i) > 1 ) continue;
+      if ( eleAbsIso/elePt->at(i) > 0.15 ) continue;
+    }
+    else
+    {
+      // i.   absolute value of electron dEtaAtVtx < 0.009
+      // ii.  absolute value of electron dPhiAtVtx < 0.10
+      // iii. electron SigmaIEtaIEta_2012 < 0.03
+      // iv.  electron H/E < 0.10
+      // v.   absolute value of electron D0 < 0.02
+      // vi.  absolute value of electron Dz < 0.02
+      // vii. electron EoverPInv < 0.05
+      // viii.electron MissHits <=1 
+      // ix.  absolute isolation/electron Pt < 0.10
+      if ( eledEtaAtVtx->at(i) > 0.009 ) continue;
+      if ( eledPhiAtVtx->at(i) > 0.10 ) continue;
+      if ( eleSigmaIEtaIEta_2012->at(i) > 0.03 ) continue;
+      if ( eleHoverE->at(i) > 0.10 ) continue;
+      if ( fabs(eleD0->at(i)) > 0.02 ) continue;
+      if ( fabs(eleDz->at(i)) > 0.02 ) continue;
+      if ( eleEoverPInv->at(i) > 0.05 ) continue;
+      if ( eleMissHits->at(i) > 1 ) continue;
+      if ( eleAbsIso/elePt->at(i) > 0.10 ) continue;
+    }
 
-  private:
-    std::map<std::string, long> counts;
-    std::vector<std::string> order;
-};
-*/
+    // If electron overlaps good photon, skip
+    float deltaR = sqrt( pow(deltaPhi(elePhi->at(i), phoPhi->at(photonNo)),2) + pow(eleEta->at(i)-phoSCEta->at(photonNo),2) );
+    if ( deltaR < 0.5 ) continue;
 
-class monoPhotonAnalysis {
-public :
-   TTree          *fChain;   //!pointer to the analyzed TTree or TChain
-   Int_t           fCurrent; //!current Tree number in a TChain
+    // We found a good electron that doesn't overlap the selected photon, veto
+    return true;
+  }
 
-   // Declaration of leaf types
-   Int_t           run;
-   Long64_t        event;
-   Int_t           lumis;
-   Bool_t          isData;
-   Int_t           nVtx;
-   Int_t           nTrks;
-   Float_t         rho;
-   vector<float>   *pdf;
-   Float_t         pthat;
-   Float_t         processID;
-   Int_t           nMC;
-   vector<int>     *mcPID;
-   vector<float>   *mcVtx_x;
-   vector<float>   *mcVtx_y;
-   vector<float>   *mcVtx_z;
-   vector<float>   *mcPt;
-   vector<float>   *mcMass;
-   vector<float>   *mcEta;
-   vector<float>   *mcPhi;
-   vector<float>   *mcE;
-   vector<float>   *mcEt;
-   vector<int>     *mcGMomPID;
-   vector<int>     *mcMomPID;
-   vector<float>   *mcMomPt;
-   vector<float>   *mcMomMass;
-   vector<float>   *mcMomEta;
-   vector<float>   *mcMomPhi;
-   vector<int>     *mcIndex;
-   vector<int>     *mcDecayType;
-   vector<int>     *mcParentage;
-   vector<int>     *mcStatus;
-   vector<float>   *mcCalIsoDR03;
-   vector<float>   *mcTrkIsoDR03;
-   vector<float>   *mcCalIsoDR04;
-   vector<float>   *mcTrkIsoDR04;
-   Int_t           nPUInfo;
-   vector<int>     *nPU;
-   vector<int>     *puBX;
-   vector<float>   *puTrue;
-   Float_t         pfMET;
-   Float_t         pfMETPhi;
-   Float_t         pfMETsumEt;
-   Float_t         pfMETmEtSig;
-   Float_t         pfMETSig;
-   Int_t           nEle;
-   vector<int>     *eleCharge;
-   vector<int>     *eleChargeConsistent;
-   vector<float>   *eleEn;
-   vector<float>   *eleSCEn;
-   vector<float>   *eleESEn;
-   vector<float>   *eleD0;
-   vector<float>   *eleDz;
-   vector<float>   *elePt;
-   vector<float>   *eleEta;
-   vector<float>   *elePhi;
-   vector<float>   *eleSCEta;
-   vector<float>   *eleSCPhi;
-   vector<float>   *eleSCRawEn;
-   vector<float>   *eleSCEtaWidth;
-   vector<float>   *eleSCPhiWidth;
-   vector<float>   *eleHoverE;
-   vector<float>   *eleEoverP;
-   vector<float>   *eleEoverPInv;
-   vector<float>   *eleBrem;
-   vector<float>   *eledEtaAtVtx;
-   vector<float>   *eledPhiAtVtx;
-   vector<float>   *eleSigmaIEtaIEta;
-   vector<float>   *eleSigmaIEtaIPhi;
-   vector<float>   *eleSigmaIPhiIPhi;
-   vector<float>   *eleSigmaIEtaIEta_2012;
-   vector<int>     *eleConvVeto;
-   vector<int>     *eleMissHits;
-   vector<float>   *eleESEffSigmaRR;
-   vector<float>   *elePFChIso;
-   vector<float>   *elePFPhoIso;
-   vector<float>   *elePFNeuIso;
-   vector<float>   *elePFPUIso;
-   vector<float>   *eleBC1E;
-   vector<float>   *eleBC1Eta;
-   vector<float>   *eleBC2E;
-   vector<float>   *eleBC2Eta;
-   Int_t           nPho;
-   vector<float>   *phoE;
-   vector<float>   *phoEt;
-   vector<float>   *phoEta;
-   vector<float>   *phoPhi;
-   vector<float>   *phoSCE;
-   vector<float>   *phoSCRawE;
-   vector<float>   *phoESEn;
-   vector<float>   *phoSCEta;
-   vector<float>   *phoSCPhi;
-   vector<float>   *phoSCEtaWidth;
-   vector<float>   *phoSCPhiWidth;
-   vector<float>   *phoSCBrem;
-   vector<int>     *phohasPixelSeed;
-   vector<int>     *phoEleVeto;
-   vector<float>   *phoR9;
-   vector<float>   *phoHoverE;
-   vector<float>   *phoSigmaIEtaIEta;
-   vector<float>   *phoSigmaIEtaIPhi;
-   vector<float>   *phoSigmaIPhiIPhi;
-   vector<float>   *phoE1x3;
-   vector<float>   *phoE2x2;
-   vector<float>   *phoE2x5Max;
-   vector<float>   *phoE5x5;
-   vector<float>   *phoESEffSigmaRR;
-   vector<float>   *phoSigmaIEtaIEta_2012;
-   vector<float>   *phoSigmaIEtaIPhi_2012;
-   vector<float>   *phoSigmaIPhiIPhi_2012;
-   vector<float>   *phoE1x3_2012;
-   vector<float>   *phoE2x2_2012;
-   vector<float>   *phoE2x5Max_2012;
-   vector<float>   *phoE5x5_2012;
-   vector<float>   *phoPFChIso;
-   vector<float>   *phoPFPhoIso;
-   vector<float>   *phoPFNeuIso;
-   vector<float>   *phoPFChWorstIso;
-   vector<float>   *phoPFChIsoFrix1;
-   vector<float>   *phoPFChIsoFrix2;
-   vector<float>   *phoPFChIsoFrix3;
-   vector<float>   *phoPFChIsoFrix4;
-   vector<float>   *phoPFChIsoFrix5;
-   vector<float>   *phoPFChIsoFrix6;
-   vector<float>   *phoPFChIsoFrix7;
-   vector<float>   *phoPFChIsoFrix8;
-   vector<float>   *phoPFPhoIsoFrix1;
-   vector<float>   *phoPFPhoIsoFrix2;
-   vector<float>   *phoPFPhoIsoFrix3;
-   vector<float>   *phoPFPhoIsoFrix4;
-   vector<float>   *phoPFPhoIsoFrix5;
-   vector<float>   *phoPFPhoIsoFrix6;
-   vector<float>   *phoPFPhoIsoFrix7;
-   vector<float>   *phoPFPhoIsoFrix8;
-   vector<float>   *phoPFNeuIsoFrix1;
-   vector<float>   *phoPFNeuIsoFrix2;
-   vector<float>   *phoPFNeuIsoFrix3;
-   vector<float>   *phoPFNeuIsoFrix4;
-   vector<float>   *phoPFNeuIsoFrix5;
-   vector<float>   *phoPFNeuIsoFrix6;
-   vector<float>   *phoPFNeuIsoFrix7;
-   vector<float>   *phoPFNeuIsoFrix8;
-   vector<float>   *phoBC1E;
-   vector<float>   *phoBC1Eta;
-   vector<float>   *phoBC2E;
-   vector<float>   *phoBC2Eta;
-   Int_t           nMu;
-   vector<float>   *muPt;
-   vector<float>   *muEta;
-   vector<float>   *muPhi;
-   vector<int>     *muCharge;
-   vector<int>     *muType;
-   vector<int>     *muIsGood;
-   vector<float>   *muD0;
-   vector<float>   *muDz;
-   vector<float>   *muChi2NDF;
-   vector<float>   *muInnerD0;
-   vector<float>   *muInnerDz;
-   vector<int>     *muTrkLayers;
-   vector<int>     *muPixelLayers;
-   vector<int>     *muPixelHits;
-   vector<int>     *muMuonHits;
-   vector<int>     *muStations;
-   vector<int>     *muTrkQuality;
-   vector<float>   *muIsoTrk;
-   vector<float>   *muPFChIso;
-   vector<float>   *muPFPhoIso;
-   vector<float>   *muPFNeuIso;
-   vector<float>   *muPFPUIso;
+  // We found no good electrons, don't veto event
+  return false;
+}
 
-   // List of branches
-   TBranch        *b_run;   //!
-   TBranch        *b_event;   //!
-   TBranch        *b_lumis;   //!
-   TBranch        *b_isData;   //!
-   TBranch        *b_nVtx;   //!
-   TBranch        *b_nTrks;   //!
-   TBranch        *b_rho;   //!
-   TBranch        *b_pdf;   //!
-   TBranch        *b_pthat;   //!
-   TBranch        *b_processID;   //!
-   TBranch        *b_nMC;   //!
-   TBranch        *b_mcPID;   //!
-   TBranch        *b_mcVtx_x;   //!
-   TBranch        *b_mcVtx_y;   //!
-   TBranch        *b_mcVtx_z;   //!
-   TBranch        *b_mcPt;   //!
-   TBranch        *b_mcMass;   //!
-   TBranch        *b_mcEta;   //!
-   TBranch        *b_mcPhi;   //!
-   TBranch        *b_mcE;   //!
-   TBranch        *b_mcEt;   //!
-   TBranch        *b_mcGMomPID;   //!
-   TBranch        *b_mcMomPID;   //!
-   TBranch        *b_mcMomPt;   //!
-   TBranch        *b_mcMomMass;   //!
-   TBranch        *b_mcMomEta;   //!
-   TBranch        *b_mcMomPhi;   //!
-   TBranch        *b_mcIndex;   //!
-   TBranch        *b_mcDecayType;   //!
-   TBranch        *b_mcParentage;   //!
-   TBranch        *b_mcStatus;   //!
-   TBranch        *b_mcCalIsoDR03;   //!
-   TBranch        *b_mcTrkIsoDR03;   //!
-   TBranch        *b_mcCalIsoDR04;   //!
-   TBranch        *b_mcTrkIsoDR04;   //!
-   TBranch        *b_nPUInfo;   //!
-   TBranch        *b_nPU;   //!
-   TBranch        *b_puBX;   //!
-   TBranch        *b_puTrue;   //!
-   TBranch        *b_pfMET;   //!
-   TBranch        *b_pfMETPhi;   //!
-   TBranch        *b_pfMETsumEt;   //!
-   TBranch        *b_pfMETmEtSig;   //!
-   TBranch        *b_pfMETSig;   //!
-   TBranch        *b_nEle;   //!
-   TBranch        *b_eleCharge;   //!
-   TBranch        *b_eleChargeConsistent;   //!
-   TBranch        *b_eleEn;   //!
-   TBranch        *b_eleSCEn;   //!
-   TBranch        *b_eleESEn;   //!
-   TBranch        *b_eleD0;   //!
-   TBranch        *b_eleDz;   //!
-   TBranch        *b_elePt;   //!
-   TBranch        *b_eleEta;   //!
-   TBranch        *b_elePhi;   //!
-   TBranch        *b_eleSCEta;   //!
-   TBranch        *b_eleSCPhi;   //!
-   TBranch        *b_eleSCRawEn;   //!
-   TBranch        *b_eleSCEtaWidth;   //!
-   TBranch        *b_eleSCPhiWidth;   //!
-   TBranch        *b_eleHoverE;   //!
-   TBranch        *b_eleEoverP;   //!
-   TBranch        *b_eleEoverPInv;   //!
-   TBranch        *b_eleBrem;   //!
-   TBranch        *b_eledEtaAtVtx;   //!
-   TBranch        *b_eledPhiAtVtx;   //!
-   TBranch        *b_eleSigmaIEtaIEta;   //!
-   TBranch        *b_eleSigmaIEtaIPhi;   //!
-   TBranch        *b_eleSigmaIPhiIPhi;   //!
-   TBranch        *b_eleSigmaIEtaIEta_2012;   //!
-   TBranch        *b_eleConvVeto;   //!
-   TBranch        *b_eleMissHits;   //!
-   TBranch        *b_eleESEffSigmaRR;   //!
-   TBranch        *b_elePFChIso;   //!
-   TBranch        *b_elePFPhoIso;   //!
-   TBranch        *b_elePFNeuIso;   //!
-   TBranch        *b_elePFPUIso;   //!
-   TBranch        *b_eleBC1E;   //!
-   TBranch        *b_eleBC1Eta;   //!
-   TBranch        *b_eleBC2E;   //!
-   TBranch        *b_eleBC2Eta;   //!
-   TBranch        *b_nPho;   //!
-   TBranch        *b_phoE;   //!
-   TBranch        *b_phoEt;   //!
-   TBranch        *b_phoEta;   //!
-   TBranch        *b_phoPhi;   //!
-   TBranch        *b_phoSCE;   //!
-   TBranch        *b_phoSCRawE;   //!
-   TBranch        *b_phoESEn;   //!
-   TBranch        *b_phoSCEta;   //!
-   TBranch        *b_phoSCPhi;   //!
-   TBranch        *b_phoSCEtaWidth;   //!
-   TBranch        *b_phoSCPhiWidth;   //!
-   TBranch        *b_phoSCBrem;   //!
-   TBranch        *b_phohasPixelSeed;   //!
-   TBranch        *b_phoEleVeto;   //!
-   TBranch        *b_phoR9;   //!
-   TBranch        *b_phoHoverE;   //!
-   TBranch        *b_phoSigmaIEtaIEta;   //!
-   TBranch        *b_phoSigmaIEtaIPhi;   //!
-   TBranch        *b_phoSigmaIPhiIPhi;   //!
-   TBranch        *b_phoE1x3;   //!
-   TBranch        *b_phoE2x2;   //!
-   TBranch        *b_phoE2x5Max;   //!
-   TBranch        *b_phoE5x5;   //!
-   TBranch        *b_phoESEffSigmaRR;   //!
-   TBranch        *b_phoSigmaIEtaIEta_2012;   //!
-   TBranch        *b_phoSigmaIEtaIPhi_2012;   //!
-   TBranch        *b_phoSigmaIPhiIPhi_2012;   //!
-   TBranch        *b_phoE1x3_2012;   //!
-   TBranch        *b_phoE2x2_2012;   //!
-   TBranch        *b_phoE2x5Max_2012;   //!
-   TBranch        *b_phoE5x5_2012;   //!
-   TBranch        *b_phoPFChIso;   //!
-   TBranch        *b_phoPFPhoIso;   //!
-   TBranch        *b_phoPFNeuIso;   //!
-   TBranch        *b_phoPFChWorstIso;   //!
-   TBranch        *b_phoPFChIsoFrix1;   //!
-   TBranch        *b_phoPFChIsoFrix2;   //!
-   TBranch        *b_phoPFChIsoFrix3;   //!
-   TBranch        *b_phoPFChIsoFrix4;   //!
-   TBranch        *b_phoPFChIsoFrix5;   //!
-   TBranch        *b_phoPFChIsoFrix6;   //!
-   TBranch        *b_phoPFChIsoFrix7;   //!
-   TBranch        *b_phoPFChIsoFrix8;   //!
-   TBranch        *b_phoPFPhoIsoFrix1;   //!
-   TBranch        *b_phoPFPhoIsoFrix2;   //!
-   TBranch        *b_phoPFPhoIsoFrix3;   //!
-   TBranch        *b_phoPFPhoIsoFrix4;   //!
-   TBranch        *b_phoPFPhoIsoFrix5;   //!
-   TBranch        *b_phoPFPhoIsoFrix6;   //!
-   TBranch        *b_phoPFPhoIsoFrix7;   //!
-   TBranch        *b_phoPFPhoIsoFrix8;   //!
-   TBranch        *b_phoPFNeuIsoFrix1;   //!
-   TBranch        *b_phoPFNeuIsoFrix2;   //!
-   TBranch        *b_phoPFNeuIsoFrix3;   //!
-   TBranch        *b_phoPFNeuIsoFrix4;   //!
-   TBranch        *b_phoPFNeuIsoFrix5;   //!
-   TBranch        *b_phoPFNeuIsoFrix6;   //!
-   TBranch        *b_phoPFNeuIsoFrix7;   //!
-   TBranch        *b_phoPFNeuIsoFrix8;   //!
-   TBranch        *b_phoBC1E;   //!
-   TBranch        *b_phoBC1Eta;   //!
-   TBranch        *b_phoBC2E;   //!
-   TBranch        *b_phoBC2Eta;   //!
-   TBranch        *b_nMu;   //!
-   TBranch        *b_muPt;   //!
-   TBranch        *b_muEta;   //!
-   TBranch        *b_muPhi;   //!
-   TBranch        *b_muCharge;   //!
-   TBranch        *b_muType;   //!
-   TBranch        *b_muIsGood;   //!
-   TBranch        *b_muD0;   //!
-   TBranch        *b_muDz;   //!
-   TBranch        *b_muChi2NDF;   //!
-   TBranch        *b_muInnerD0;   //!
-   TBranch        *b_muInnerDz;   //!
-   TBranch        *b_muTrkLayers;   //!
-   TBranch        *b_muPixelLayers;   //!
-   TBranch        *b_muPixelHits;   //!
-   TBranch        *b_muMuonHits;   //!
-   TBranch        *b_muStations;   //!
-   TBranch        *b_muTrkQuality;   //!
-   TBranch        *b_muIsoTrk;   //!
-   TBranch        *b_muPFChIso;   //!
-   TBranch        *b_muPFPhoIso;   //!
-   TBranch        *b_muPFNeuIso;   //!
-   TBranch        *b_muPFPUIso;   //!
+bool monoPhotonAnalyzer::muonVeto(const int photonNo)
+{
+  for ( int i=0; i < nMu; i++ )
+  {
+    // a) muon Pt > 10
+    // b) muon Isolation Track / muon Pt < 0.10
+    // c) muon Chi2/NDF < 10
+    // d) muon hits > 0
+    // e) muon pixel hits > 0
+    // f) muon Stations > 1
+    // g) muon D0 < 0.2
+    // h) muon Dz < 0.5
+    // i) muon Track Layers > 5
+    if ( muPt->at(i) < 10. ) continue;
+    if ( muIsoTrk->at(i) / muPt->at(i) > 0.1 ) continue;
+    if ( muChi2NDF->at(i) >= 10 ) continue;
+    if ( muMuonHits->at(i) == 0 ) continue;
+    if ( muPixelHits->at(i) == 0 ) continue;
+    if ( muStations->at(i) <= 1 ) continue;
+    if ( fabs(muD0->at(i)) > 0.2 ) continue;
+    if ( fabs(muDz->at(i)) > 0.5 ) continue;
+    if ( muTrkLayers->at(i) <= 5 ) continue;
 
-   monoPhotonAnalysis(TTree *tree=0);
-   virtual ~monoPhotonAnalysis();
-   virtual Int_t    Cut(Long64_t entry);
-   virtual Int_t    GetEntry(Long64_t entry);
-   virtual Long64_t LoadTree(Long64_t entry);
-   virtual void     Init(TTree *tree);
-   virtual void     Loop();
-   virtual Bool_t   Notify();
-   virtual void     Show(Long64_t entry = -1);
-   bool             HasMediumPhoton(int& photonNo);
-   bool             electronVeto(const int photonNo);
-   bool             muonVeto(const int photonNo);
-   float            deltaPhi(float phi1, float phi2);
+    // If muon overlaps good photon, skip
+    float deltaR = sqrt( pow(deltaPhi(muPhi->at(i), phoPhi->at(photonNo)),2) + pow(muEta->at(i)-phoSCEta->at(photonNo),2) );
+    if ( deltaR < 0.5 ) continue;
 
-   // options
-   bool kUseWorstChIso = true;
-};
+    // We found a good muon that doesn't overlap the selected photon, veto
+    return true;
+  }
 
-#endif
+  // No good muons
+  return false;
+}
 
-#ifdef monoPhotonAnalysis_cxx
-monoPhotonAnalysis::monoPhotonAnalysis(TTree *tree) : fChain(0) 
+float monoPhotonAnalyzer::deltaPhi(float phi1, float phi2)
+{
+  // Thanks to reco::deltaPhi in CMSSW
+  double result = phi1 - phi2;
+  while (result > M_PI) result -= 2*M_PI;
+  while (result <= -M_PI) result += 2*M_PI;
+  return result;
+}
+
+monoPhotonAnalyzer::monoPhotonAnalyzer(TTree *tree) : fChain(0) 
 {
 // if parameter tree is not specified (or zero), connect the file
 // used to generate this class and read the Tree.
@@ -424,19 +212,19 @@ monoPhotonAnalysis::monoPhotonAnalysis(TTree *tree) : fChain(0)
    Loop();
 }
 
-monoPhotonAnalysis::~monoPhotonAnalysis()
+monoPhotonAnalyzer::~monoPhotonAnalyzer()
 {
    if (!fChain) return;
    delete fChain->GetCurrentFile();
 }
 
-Int_t monoPhotonAnalysis::GetEntry(Long64_t entry)
+Int_t monoPhotonAnalyzer::GetEntry(Long64_t entry)
 {
 // Read contents of entry.
    if (!fChain) return 0;
    return fChain->GetEntry(entry);
 }
-Long64_t monoPhotonAnalysis::LoadTree(Long64_t entry)
+Long64_t monoPhotonAnalyzer::LoadTree(Long64_t entry)
 {
 // Set the environment to read one entry
    if (!fChain) return -5;
@@ -449,7 +237,7 @@ Long64_t monoPhotonAnalysis::LoadTree(Long64_t entry)
    return centry;
 }
 
-void monoPhotonAnalysis::Init(TTree *tree)
+void monoPhotonAnalyzer::Init(TTree *tree)
 {
    // The Init() function is called when the selector needs to initialize
    // a new tree or chain. Typically here the branch addresses and branch
@@ -786,7 +574,7 @@ void monoPhotonAnalysis::Init(TTree *tree)
    Notify();
 }
 
-Bool_t monoPhotonAnalysis::Notify()
+Bool_t monoPhotonAnalyzer::Notify()
 {
    // The Notify() function is called when a new file is opened. This
    // can be either for a new TTree in a TChain or when when a new TTree
@@ -796,19 +584,3 @@ Bool_t monoPhotonAnalysis::Notify()
 
    return kTRUE;
 }
-
-void monoPhotonAnalysis::Show(Long64_t entry)
-{
-// Print contents of entry.
-// If entry is not specified, print current entry
-   if (!fChain) return;
-   fChain->Show(entry);
-}
-Int_t monoPhotonAnalysis::Cut(Long64_t entry)
-{
-// This function may be called from Loop.
-// returns  1 if entry is accepted.
-// returns -1 otherwise.
-   return 1;
-}
-#endif // #ifdef monoPhotonAnalysis_cxx
