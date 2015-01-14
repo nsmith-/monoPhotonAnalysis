@@ -71,7 +71,9 @@ bool monoPhotonAnalysis::HasMediumPhoton(int& photonNo)
 
     // Only barrel photons, so only two bins in effective area
     float chi = ( kUseWorstChIso ) ? phoPFChWorstIso->at(i) : phoPFChIso->at(i);
-    bool rhoCorrPFchi     = ( (phoEta->at(i) < 1.) ? max(chi-rho*0.012, 0.) : max(chi-rho*0.010, 0.) ) < 1.2;
+    float effectiveAreaLowEta = ( kUseWorstChIso ) ? 0.075 : 0.012;
+    float effectiveAreaHighEta = ( kUseWorstChIso ) ? 0.0617 : 0.010;
+    bool rhoCorrPFchi     = ( (phoEta->at(i) < 1.) ? max(chi-rho*effectiveAreaLowEta, 0.) : max(chi-rho*effectiveAreaHighEta, 0.) ) < 1.2;
     bool rhoCorrPFnhi     = ( (phoEta->at(i) < 1.) ? max(phoPFNeuIso->at(i)-rho*0.030, 0.) : max(phoPFNeuIso->at(i)-rho*0.057, 0.) ) < 1.+0.04*phoEt->at(i);
     bool rhoCorrPFphoi    = ( (phoEta->at(i) < 1.) ? max(phoPFPhoIso->at(i)-rho*0.148, 0.) : max(phoPFPhoIso->at(i)-rho*0.130, 0.) ) < 0.7+0.005*phoEt->at(i);
 
