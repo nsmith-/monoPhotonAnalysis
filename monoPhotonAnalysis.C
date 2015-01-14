@@ -176,7 +176,7 @@ bool monoPhotonAnalysis::muonVeto(const int photonNo)
     if ( muTrkLayers->at(i) <= 5 ) continue;
 
     // If muon overlaps good photon, skip
-    float deltaR = sqrt( pow(deltaPhi(elePhi->at(i), phoPhi->at(photonNo)),2) + pow(eleEta->at(i)-phoSCEta->at(photonNo),2) );
+    float deltaR = sqrt( pow(deltaPhi(muPhi->at(i), phoPhi->at(photonNo)),2) + pow(muEta->at(i)-phoSCEta->at(photonNo),2) );
     if ( deltaR < 0.5 ) continue;
 
     // We found a good muon that doesn't overlap the selected photon, veto
