@@ -372,6 +372,8 @@ public :
    virtual Bool_t   Notify();
    virtual void     Show(Long64_t entry = -1);
    bool             HasMediumPhoton(int& photonNo);
+   bool             electronVeto(const int photonNo);
+   bool             muonVeto(const int photonNo);
 };
 
 #endif
@@ -390,6 +392,7 @@ monoPhotonAnalysis::monoPhotonAnalysis(TTree *tree) : fChain(0)
 
    }
    Init(tree);
+   Loop();
 }
 
 monoPhotonAnalysis::~monoPhotonAnalysis()
