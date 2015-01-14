@@ -68,9 +68,9 @@ bool monoPhotonAnalysis::HasMediumPhoton(int& photonNo)
     float chi = ( kUseWorstChIso ) ? phoPFChWorstIso->at(i) : phoPFChIso->at(i);
     float effectiveAreaLowEta = ( kUseWorstChIso ) ? 0.075 : 0.012;
     float effectiveAreaHighEta = ( kUseWorstChIso ) ? 0.0617 : 0.010;
-    bool rhoCorrPFchi     = ( (phoSCEta->at(i) < 1.) ? max(chi-rho*effectiveAreaLowEta, 0.f) : max(chi-rho*effectiveAreaHighEta, 0.f) ) < 1.5;
-    bool rhoCorrPFnhi     = ( (phoSCEta->at(i) < 1.) ? max(phoPFNeuIso->at(i)-rho*0.030, 0.) : max(phoPFNeuIso->at(i)-rho*0.057, 0.) ) < 1.+0.04*phoEt->at(i);
-    bool rhoCorrPFphoi    = ( (phoSCEta->at(i) < 1.) ? max(phoPFPhoIso->at(i)-rho*0.148, 0.) : max(phoPFPhoIso->at(i)-rho*0.130, 0.) ) < 0.7+0.005*phoEt->at(i);
+    bool rhoCorrPFchi     = ( (fabs(phoSCEta->at(i)) < 1.) ? max(chi-rho*effectiveAreaLowEta, 0.f) : max(chi-rho*effectiveAreaHighEta, 0.f) ) < 1.5;
+    bool rhoCorrPFnhi     = ( (fabs(phoSCEta->at(i)) < 1.) ? max(phoPFNeuIso->at(i)-rho*0.030, 0.) : max(phoPFNeuIso->at(i)-rho*0.057, 0.) ) < 1.+0.04*phoEt->at(i);
+    bool rhoCorrPFphoi    = ( (fabs(phoSCEta->at(i)) < 1.) ? max(phoPFPhoIso->at(i)-rho*0.148, 0.) : max(phoPFPhoIso->at(i)-rho*0.130, 0.) ) < 0.7+0.005*phoEt->at(i);
 
     bool isMediumPhoton = etCut            && scEtaCut         &&  hOverECut   &&
                           sigmaIEtaIEtaCut && sigmaIPhiIPhiCut && pixelSeedCut && 
