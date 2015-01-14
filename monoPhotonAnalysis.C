@@ -2,6 +2,7 @@
 #include "monoPhotonAnalysis.h"
 #include <cstdio>
 #include <iostream>
+#include <iomanip>
 #include <map>
 #include <TH2.h>
 #include <TStyle.h>
@@ -19,7 +20,7 @@ void monoPhotonAnalysis::Loop()
    for (Long64_t jentry=0; jentry<nentries;jentry++) {
       Long64_t ientry = LoadTree(jentry);
       if (ientry < 0) break;
-      if ( ientry % 10000 == 0 ) printf("Processed %7d / %7d events (% 2.1f\%)\n", jentry, nentries, jentry*100./nentries);
+      if ( ientry % 10000 == 0 ) printf("Processed %7lld / %7lld events (% 2.1f\%)\n", jentry, nentries, jentry*100./nentries);
       nb = fChain->GetEntry(jentry);   nbytes += nb;
 
       // first medium photon cut
@@ -29,22 +30,15 @@ void monoPhotonAnalysis::Loop()
 
       // Make sure MET is significant
       if ( pfMET < 90. ) continue;
-      cutFlow["pfMET < 90"]++;
+      cutFlow["pfMET > 90"]++;
 
       // photon and MET should be back to back
-      auto deltaPhi = [](float phi1, float phi2)
-      {
-        // Thanks to reco::deltaPhi in CMSSW
-        double result = phi1 - phi2;
-        while (result > M_PI) result -= 2*M_PI;
-        while (result <= -M_PI) result += 2*M_PI;
-        return result;
-      };
+
       if ( deltaPhi(pfMETPhi, phoPhi->at(selectedPhoton)) < 2. ) continue;
       cutFlow["deltaPhi"]++;
 
       // Veto event if electron or muon
-      // if ( electronVeto(selectedPhoton) ) continue;
+      if ( electronVeto(selectedPhoton) ) continue;
       cutFlow["electron veto"]++;
       // if ( muonVeto(selectedPhoton) ) continue;
       cutFlow["muon veto"]++;
@@ -96,10 +90,81 @@ bool monoPhotonAnalysis::HasMediumPhoton(int& photonNo)
 
 bool monoPhotonAnalysis::electronVeto(const int photonNo)
 {
-  return true;
+  for (int i=0; i < nEle; i++)
+  {
+    // at least 10GeV electron
+    if ( elePt->at(i) < 10. ) continue;
+
+    // electron PF Charged Hadron Isolation + max (0.0, electron PF Photon Isolation + electron PF Neutral Hadron Isolation - 0.5*electron PF PU Isolation)
+    float eleAbsIso = elePFChIso->at(i) + max(0., elePFPhoIso->at(i) + elePFNeuIso->at(i) - 0.5*elePFPUIso->at(i));
+
+    // Barrel and endcap quality criteria
+    if ( eleEta->at(i) < 1.479 ) 
+    {
+      // i.   check  absolute electron dEtaAtVtx < 0.007
+      // ii.  check absolute electron dPhiAtVtx < 0.15 
+      // iii. check electron SigmaIEtaIEta_2012 < 0.01
+      // iv.  electron H/E < 0.12 
+      // v.   absolute value of electron D0 < 0.02
+      // vi.  absolute value of electron Dz < 0.2
+      // vii. electron EoverPInv < 0.05
+      // viii.electron MissHits <= 1   
+      // ix.  absolute isolation/electron Pt < 0.15 
+      if ( eledEtaAtVtx->at(i) > 0.007 ) continue;
+      if ( eledPhiAtVtx->at(i) > 0.15 ) continue;
+      if ( eleSigmaIEtaIEta_2012->at(i) > 0.01 ) continue;
+      if ( eleHoverE->at(i) > 0.12 ) continue;
+      if ( fabs(eleD0->at(i)) > 0.02 ) continue;
+      if ( fabs(eleDz->at(i)) > 0.2 ) continue;
+      if ( eleEoverPInv->at(i) > 0.05 ) continue;
+      if ( eleMissHits->at(i) > 1 ) continue;
+      if ( eleAbsIso/elePt->at(i) > 0.15 ) continue;
+    }
+    else
+    {
+      // i.   absolute value of electron dEtaAtVtx < 0.009
+      // ii.  absolute value of electron dPhiAtVtx < 0.10
+      // iii. electron SigmaIEtaIEta_2012 < 0.03
+      // iv.  electron H/E < 0.10
+      // v.   absolute value of electron D0 < 0.02
+      // vi.  absolute value of electron Dz < 0.02
+      // vii. electron EoverPInv < 0.05
+      // viii.electron MissHits <=1 
+      // ix.  absolute isolation/electron Pt < 0.10
+      if ( eledEtaAtVtx->at(i) > 0.009 ) continue;
+      if ( eledPhiAtVtx->at(i) > 0.10 ) continue;
+      if ( eleSigmaIEtaIEta_2012->at(i) > 0.03 ) continue;
+      if ( eleHoverE->at(i) > 0.10 ) continue;
+      if ( fabs(eleD0->at(i)) > 0.02 ) continue;
+      if ( fabs(eleDz->at(i)) > 0.02 ) continue;
+      if ( eleEoverPInv->at(i) > 0.05 ) continue;
+      if ( eleMissHits->at(i) > 1 ) continue;
+      if ( eleAbsIso/elePt->at(i) > 0.10 ) continue;
+    }
+
+    // If electron overlaps good photon, skip
+    float deltaR = sqrt( pow(deltaPhi(elePhi->at(i), phoPhi->at(photonNo)),2) + pow(eleEta->at(i)-phoEta->at(photonNo),2) );
+    if ( deltaR < 0.5 ) continue;
+
+    // We found a good electron that doesn't overlap the selected photon, veto
+    return true;
+  }
+
+  // We found no good electrons, don't veto event
+  return false;
 }
 
 bool monoPhotonAnalysis::muonVeto(const int photonNo)
 {
   return true;
 }
+
+float monoPhotonAnalysis::deltaPhi(float phi1, float phi2)
+{
+  // Thanks to reco::deltaPhi in CMSSW
+  double result = phi1 - phi2;
+  while (result > M_PI) result -= 2*M_PI;
+  while (result <= -M_PI) result += 2*M_PI;
+  return result;
+}
+

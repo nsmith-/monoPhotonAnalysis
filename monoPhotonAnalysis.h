@@ -374,6 +374,7 @@ public :
    bool             HasMediumPhoton(int& photonNo);
    bool             electronVeto(const int photonNo);
    bool             muonVeto(const int photonNo);
+   float            deltaPhi(float phi1, float phi2);
 
    // options
    bool kUseWorstChIso = true;
