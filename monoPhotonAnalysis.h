@@ -374,6 +374,9 @@ public :
    bool             HasMediumPhoton(int& photonNo);
    bool             electronVeto(const int photonNo);
    bool             muonVeto(const int photonNo);
+
+   // options
+   bool kUseWorstChIso = true;
 };
 
 #endif
