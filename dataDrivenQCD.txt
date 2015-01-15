@@ -1,0 +1,8 @@
+Passed 55 events out of 4519553
+nQCD = 10.6522
+Cut flow summary --------
+                      deltaPhi : 61 events passed.
+                 electron veto : 58 events passed.
+                     muon veto : 55 events passed.
+                    pfMET > 90 : 79 events passed.
+                 qcd selection : 450 events passed.
