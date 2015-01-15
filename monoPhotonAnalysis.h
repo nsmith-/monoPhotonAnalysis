@@ -408,7 +408,7 @@ public :
    std::string _outFilename;
    // options
    bool kUseWorstChIso = true;
-   bool kDoQCDBackground = true;
+   bool kDoQCDBackground = false;
 };
 
 #endif

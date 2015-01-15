@@ -11,8 +11,10 @@ void monoPhotonAnalysis::Loop()
 {
    if (fChain == 0) return;
 
-   TTree * outTree = new TTree("EventTree", "Selected events");
+   TTree * outTree = fChain->GetTree()->CloneTree(0); // 0 means do not copy entries
    outTree->CopyAddresses(fChain->GetTree());
+   int selectedPhoton = 0;
+   outTree->Branch("selectedPhoton", &selectedPhoton);
 
    Long64_t nentries = fChain->GetEntriesFast();
    Long64_t npassed = 0;
@@ -27,7 +29,6 @@ void monoPhotonAnalysis::Loop()
       nb = fChain->GetEntry(jentry);   nbytes += nb;
 
       // first medium photon cut
-      int selectedPhoton = 0;
       if ( kDoQCDBackground )
       {
         if ( !HasQCD(selectedPhoton) ) continue;
