@@ -11,6 +11,11 @@ void monoPhotonAnalysis::Loop()
 {
    if (fChain == 0) return;
 
+   TFile * output = new TFile(_outFilename.c_str(), "recreate");
+   output->cd();
+   TTree * outTree = new TTree("EventTree", "Selected events");
+   outTree->CopyAddresses(fChain->GetTree());
+
    Long64_t nentries = fChain->GetEntriesFast();
    Long64_t npassed = 0;
    double nQCD = 0.;
@@ -53,6 +58,8 @@ void monoPhotonAnalysis::Loop()
       // -----  End Cut Selection -----
       npassed++;
       nQCD += 4.3865e-02+7.0223e-04*phoEt->at(selectedPhoton);
+
+      outTree->Fill();
    }
    std::cout << "Passed " << npassed << " events out of " << nentries << std::endl;
    if ( kDoQCDBackground )
@@ -269,7 +276,7 @@ bool monoPhotonAnalysis::isQCDLike(int i)
   bool tooNotIsolatedFromNH = correctedIso(phoPFNeuIso->at(i), "neutral hadron") < NEU_HADRON_ISO;
   bool tooNotIsolatedFromPho = correctedIso(phoPFPhoIso->at(i), "photon") < PHOTON_ISO;
 
-  bool upper = tooNotIsolatedFromCH && tooNotIsolatedFromNH && tooNotIsolatedFromPho && ( phoSigmaIEtaIEta->at(i) < 0.013 );
+  bool upper = tooNotIsolatedFromCH && tooNotIsolatedFromNH && tooNotIsolatedFromPho;
 
   bool notIsolatedFromCH =  correctedIso(phoPFChWorstIso->at(i), "worst charged hadron") > 2.6;
   bool notIsolatedFromNH =  correctedIso(phoPFNeuIso->at(i), "neutral hadron") > 3.5+0.04*phoEt->at(i);
@@ -290,7 +297,7 @@ bool monoPhotonAnalysis::HasQCD(int& qcdNo)
     bool scEtaCut         = fabs(phoSCEta->at   (i)) <   1.4442;
     bool hOverECut        = phoHoverE->at       (i)  <   0.05;
     bool sigmaIEtaIEtaCut = phoSigmaIEtaIEta->at(i)  >   0.001 &&
-                            phoSigmaIEtaIEta->at(i)  <   0.011;
+                            phoSigmaIEtaIEta->at(i)  <   0.013;
     bool sigmaIPhiIPhiCut = phoSigmaIPhiIPhi->at(i)  >   0.001;
     bool pixelSeedCut     = phohasPixelSeed->at (i)  ==  0;
     bool r9Cut            = phoR9->at           (i)  <   1.0;

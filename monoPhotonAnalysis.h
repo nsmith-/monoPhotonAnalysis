@@ -387,7 +387,7 @@ public :
    TBranch        *b_muPFNeuIso;   //!
    TBranch        *b_muPFPUIso;   //!
 
-   monoPhotonAnalysis(TTree *tree=0);
+   monoPhotonAnalysis(TTree *tree=0, std::string outName="data_selection.root");
    virtual ~monoPhotonAnalysis();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
@@ -405,15 +405,16 @@ public :
    bool isIsolatedPhoton(int i);
    bool isQCDLike(int i);
 
+   std::string _outFilename;
    // options
    bool kUseWorstChIso = true;
-   bool kDoQCDBackground = false;
+   bool kDoQCDBackground = true;
 };
 
 #endif
 
 #ifdef monoPhotonAnalysis_cxx
-monoPhotonAnalysis::monoPhotonAnalysis(TTree *tree) : fChain(0) 
+monoPhotonAnalysis::monoPhotonAnalysis(TTree *tree, std::string outName) : fChain(0), _outFilename(outName)
 {
 // if parameter tree is not specified (or zero), connect the file
 // used to generate this class and read the Tree.
