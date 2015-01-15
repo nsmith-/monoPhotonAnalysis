@@ -65,17 +65,10 @@ bool monoPhotonAnalysis::HasMediumPhoton(int& photonNo)
     bool r9Cut            = phoR9->at           (i)  <   1.0;
 
     // Only barrel photons, so only two bins in effective area
-    float chi = ( kUseWorstChIso ) ? phoPFChWorstIso->at(i) : phoPFChIso->at(i);
-    float effectiveAreaLowEta = ( kUseWorstChIso ) ? 0.075 : 0.012;
-    float effectiveAreaHighEta = ( kUseWorstChIso ) ? 0.0617 : 0.010;
-    bool rhoCorrPFchi     = ( (phoSCEta->at(i) < 1.) ? max(chi-rho*effectiveAreaLowEta, 0.f) : max(chi-rho*effectiveAreaHighEta, 0.f) ) < 1.5;
-    bool rhoCorrPFnhi     = ( (phoSCEta->at(i) < 1.) ? max(phoPFNeuIso->at(i)-rho*0.030, 0.) : max(phoPFNeuIso->at(i)-rho*0.057, 0.) ) < 1.+0.04*phoEt->at(i);
-    bool rhoCorrPFphoi    = ( (phoSCEta->at(i) < 1.) ? max(phoPFPhoIso->at(i)-rho*0.148, 0.) : max(phoPFPhoIso->at(i)-rho*0.130, 0.) ) < 0.7+0.005*phoEt->at(i);
-
     bool isMediumPhoton = etCut            && scEtaCut         &&  hOverECut   &&
                           sigmaIEtaIEtaCut && sigmaIPhiIPhiCut && pixelSeedCut && 
-                          r9Cut && rhoCorrPFchi && rhoCorrPFnhi && rhoCorrPFphoi;
-
+                          r9Cut && isIsolatedPhoton(i);
+                            
     if (isMediumPhoton) {
       nMediumPhotons++;
       photonNo = i;
@@ -96,10 +89,10 @@ bool monoPhotonAnalysis::electronVeto(const int photonNo)
     float eleAbsIso = elePFChIso->at(i) + max(0., elePFPhoIso->at(i) + elePFNeuIso->at(i) - 0.5*elePFPUIso->at(i));
 
     // Barrel and endcap quality criteria
-    if ( eleEta->at(i) < 1.479 ) 
+    if ( eleEta->at(i) < 1.479 )
     {
       // i.   check  absolute electron dEtaAtVtx < 0.007
-      // ii.  check absolute electron dPhiAtVtx < 0.15 
+      // ii.  check absolute electron dPhiAtVtx < 0.15
       // iii. check electron SigmaIEtaIEta_2012 < 0.01
       // iv.  electron H/E < 0.12 
       // v.   absolute value of electron D0 < 0.02
@@ -195,3 +188,40 @@ float monoPhotonAnalysis::deltaPhi(float phi1, float phi2)
   return result;
 }
 
+bool monoPhotonAnalysis::isIsolatedPhoton(int i)
+{
+  const float MED_CH_HADRON_ISO = 1.5;
+  const float MED_NEU_HADRON_ISO = 1.0 + 0.04*phoEt->at(i);
+  const float MED_PHOTON_ISO = 0.7 + 0.005*phoEt->at(i);
+
+  auto correctedIso = [this, i](double naiveIso, std::string isoParticle)
+  {
+    return max(naiveIso - this->rho*getPhotonEffectiveArea(isoParticle, i), 0.);
+  };
+
+  bool isolatedFromCH = correctedIso(phoPFChWorstIso->at(i), ( kUseWorstChIso ) ? "worst charged hadron" : "charged hadron" ) < MED_CH_HADRON_ISO;
+  bool isolatedFromNH = correctedIso(phoPFNeuIso->at(i), "neutral hadron") < MED_NEU_HADRON_ISO;
+  bool isolatedFromPho = correctedIso(phoPFPhoIso->at(i), "photon") < MED_PHOTON_ISO;
+
+  return (isolatedFromCH && isolatedFromNH && isolatedFromPho);
+}
+
+double monoPhotonAnalysis::getPhotonEffectiveArea(std::string isoParticle, int i)
+{
+  std::map<std::string, std::vector<float>> effAreaLookup;
+  effAreaLookup["charged hadron"] = { 0.012, 0.010 };
+  effAreaLookup["worst charged hadron"] = { 0.075, 0.0617 };
+  effAreaLookup["neutral hadron"] = { 0.030, 0.057 };
+  effAreaLookup["photon"] = { 0.148, 0.130 };
+
+  auto etaRegion = [](float photonEta)
+  {
+    if (fabs(photonEta) < 1.0)
+      return 0;
+    else if (fabs(photonEta) < 1.479)
+      return 1;
+    else
+      return 1;
+  };
+  return effAreaLookup[isoParticle][etaRegion(phoSCEta->at(i))];
+}
