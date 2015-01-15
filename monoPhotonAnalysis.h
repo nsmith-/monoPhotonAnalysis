@@ -397,14 +397,17 @@ public :
    virtual Bool_t   Notify();
    virtual void     Show(Long64_t entry = -1);
    bool             HasMediumPhoton(int& photonNo);
+   bool             HasQCD(int& qcdNo);
    bool             electronVeto(const int photonNo);
    bool             muonVeto(const int photonNo);
    float            deltaPhi(float phi1, float phi2);
    double getPhotonEffectiveArea(std::string isoParticle, int i);
    bool isIsolatedPhoton(int i);
+   bool isQCDLike(int i);
 
    // options
    bool kUseWorstChIso = true;
+   bool kDoQCDBackground = false;
 };
 
 #endif

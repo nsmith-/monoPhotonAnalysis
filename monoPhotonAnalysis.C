@@ -13,6 +13,7 @@ void monoPhotonAnalysis::Loop()
 
    Long64_t nentries = fChain->GetEntriesFast();
    Long64_t npassed = 0;
+   double nQCD = 0.;
    std::map<std::string, long> cutFlow;
 
    Long64_t nbytes = 0, nb = 0;
@@ -24,8 +25,16 @@ void monoPhotonAnalysis::Loop()
 
       // first medium photon cut
       int selectedPhoton = 0;
-      if ( !HasMediumPhoton(selectedPhoton) ) continue;
-      cutFlow["medium photon"]++;
+      if ( kDoQCDBackground )
+      {
+        if ( !HasQCD(selectedPhoton) ) continue;
+        cutFlow["qcd selection"]++;
+      }
+      else
+      {
+        if ( !HasMediumPhoton(selectedPhoton) ) continue;
+        cutFlow["medium photon"]++;
+      }
 
       // Make sure MET is significant
       if ( pfMET < 90. ) continue;
@@ -43,8 +52,11 @@ void monoPhotonAnalysis::Loop()
 
       // -----  End Cut Selection -----
       npassed++;
+      nQCD += 4.3865e-02+7.0223e-04*phoEt->at(selectedPhoton);
    }
    std::cout << "Passed " << npassed << " events out of " << nentries << std::endl;
+   if ( kDoQCDBackground )
+     std::cout << "nQCD = " << nQCD << std::endl;
    std::cout << "Cut flow summary --------" << std::endl;
    for ( const auto& cut : cutFlow ) std::cout << setw(30) << cut.first << " : " << cut.second << " events passed." << std::endl;
 }
@@ -224,4 +236,75 @@ double monoPhotonAnalysis::getPhotonEffectiveArea(std::string isoParticle, int i
       return 1;
   };
   return effAreaLookup[isoParticle][etaRegion(phoSCEta->at(i))];
+}
+
+// ///////// QCD selection ///////////
+//     1.  maximum PF Charged Hadron Isolation = Min(5.0*2.6 , 0.20*photonPt) 
+//     2.  maximum PF Photon Isolation         = Min(5.0*(1.3+0.005*photonPt) , 0.20*photonPt)
+//     3.  maximum PF Neutral Hadron Isolation = Min(5.0*(3.5+0.04*photonPt) , 0.20*photonPt)
+//     4.  Define an upperBound using ALL these cuts (look at the bottom for area values): 
+// 
+//       a)  (Max(photon PF Worst Charged Hadron Isolation - rho* WorstChargedHadronsAreas ,0.0) < maximum PF Charged Hadron Isolation ) 
+//       b)  (photon SigmaIEtaIEta < 0.013 ) 
+//       c)  (Max(photon PF Photon Isolation - rho *PhotonAreas) ,0.0) < maximum PF Photon Isolation ) 
+//       d)  (Max(photon PF Neutral Hadron Isolation - rho*NeutralHadronAreas) ,0.0) < maximum PF Neutral Hadron Isolation)
+// 
+//     5.  Define a lowerBound where ANY ONE of these cuts are satisfied:
+//     
+//       a) (Max(photon PF Photon Isolation - rho*PhotonAreas) ,0.0) > 1.3+0.005*photonPt
+//       b) (Max(photon PF Neutral Isolation - rho*NeutralHadronAreas) ,0.0) > 3.5+0.04*photonPt
+//       c) (Max(photon PF Worst Charged Hadron Isolation - rho*WorstChargedHadronAreas) ,0.0) > 2.6
+bool monoPhotonAnalysis::isQCDLike(int i)
+{
+  const float CH_HADRON_ISO = min(5.*2.6, 0.2*phoEt->at(i));
+  const float PHOTON_ISO = min(5.*(1.3+0.005*phoEt->at(i)), 0.2*phoEt->at(i));
+  const float NEU_HADRON_ISO = min(5.*(3.5+0.04*phoEt->at(i)), 0.2*phoEt->at(i));
+
+  auto correctedIso = [&](double naiveIso, std::string isoParticle)
+  {
+    return max(naiveIso - this->rho*getPhotonEffectiveArea(isoParticle, i), 0.);
+  };
+
+  bool tooNotIsolatedFromCH = correctedIso(phoPFChWorstIso->at(i), "worst charged hadron") < CH_HADRON_ISO;
+  bool tooNotIsolatedFromNH = correctedIso(phoPFNeuIso->at(i), "neutral hadron") < NEU_HADRON_ISO;
+  bool tooNotIsolatedFromPho = correctedIso(phoPFPhoIso->at(i), "photon") < PHOTON_ISO;
+
+  bool upper = tooNotIsolatedFromCH && tooNotIsolatedFromNH && tooNotIsolatedFromPho && ( phoSigmaIEtaIEta->at(i) < 0.013 );
+
+  bool notIsolatedFromCH =  correctedIso(phoPFChWorstIso->at(i), "worst charged hadron") > 2.6;
+  bool notIsolatedFromNH =  correctedIso(phoPFNeuIso->at(i), "neutral hadron") > 3.5+0.04*phoEt->at(i);
+  bool notIsolatedFromPho = correctedIso(phoPFPhoIso->at(i), "photon") > 1.3+0.005*phoEt->at(i);
+
+  bool lower = notIsolatedFromCH || notIsolatedFromNH || notIsolatedFromPho;
+
+  return upper && lower;
+}
+
+bool monoPhotonAnalysis::HasQCD(int& qcdNo)
+{
+  int nQCD = 0;
+
+  for (int i = 0; i < nPho; i++) {
+
+    bool etCut            = phoEt->at           (i)  > 100.0;
+    bool scEtaCut         = fabs(phoSCEta->at   (i)) <   1.4442;
+    bool hOverECut        = phoHoverE->at       (i)  <   0.05;
+    bool sigmaIEtaIEtaCut = phoSigmaIEtaIEta->at(i)  >   0.001 &&
+                            phoSigmaIEtaIEta->at(i)  <   0.011;
+    bool sigmaIPhiIPhiCut = phoSigmaIPhiIPhi->at(i)  >   0.001;
+    bool pixelSeedCut     = phohasPixelSeed->at (i)  ==  0;
+    bool r9Cut            = phoR9->at           (i)  <   1.0;
+
+    // Only barrel photons, so only two bins in effective area
+    bool isMediumPhoton = etCut            && scEtaCut         &&  hOverECut   &&
+                          sigmaIEtaIEtaCut && sigmaIPhiIPhiCut && pixelSeedCut && 
+                          r9Cut && isQCDLike(i);
+                            
+    if (isMediumPhoton) {
+      nQCD++;
+      qcdNo = i;
+    }
+  }
+
+  return nQCD == 1;
 }
