@@ -1,0 +1,5 @@
+18772 events pass out of 50000 = 37.544
+
+Cross section = 0.518  pb
+
+Events in 1 fb-1 = 518 * 1 * .37544 = 194
