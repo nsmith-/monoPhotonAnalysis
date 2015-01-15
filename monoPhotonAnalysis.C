@@ -25,7 +25,11 @@ void monoPhotonAnalysis::Loop()
    for (Long64_t jentry=0; jentry<nentries;jentry++) {
       Long64_t ientry = LoadTree(jentry);
       if (ientry < 0) break;
-      if ( ientry % 10000 == 0 ) printf("Processed %7lld / %7lld events (% 2.1f%%)\n", jentry, nentries, jentry*100./nentries);
+      if ( ientry % 10000 == 0 )
+      {
+        printf("Processed %7lld / %7lld events (% 2.1f%%)\r", jentry, nentries, jentry*100./nentries);
+        cout.flush();
+      }
       nb = fChain->GetEntry(jentry);   nbytes += nb;
 
       // first medium photon cut
@@ -60,7 +64,7 @@ void monoPhotonAnalysis::Loop()
 
       outTree->Fill();
    }
-   std::cout << "Passed " << npassed << " events out of " << nentries << std::endl;
+   std::cout << "\nPassed " << npassed << " events out of " << nentries << std::endl;
    if ( kDoQCDBackground )
      std::cout << "nQCD = " << nQCD << std::endl;
    std::cout << "Cut flow summary --------" << std::endl;
@@ -69,6 +73,9 @@ void monoPhotonAnalysis::Loop()
    TFile * output = new TFile(_outFilename.c_str(), "recreate");
    output->cd();
    outTree->Write();
+   output->Close();
+   delete output;
+   delete outTree;
 }
 
 bool monoPhotonAnalysis::HasMediumPhoton(int& photonNo)

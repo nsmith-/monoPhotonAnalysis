@@ -1,4 +1,6 @@
+// Run final selection on data and all MC sets
 {
+  gSystem->Load("monoPhotonAnalysis_C.so");
   // Load up files used
   TFile * fdata = TFile::Open("/eos/uscms/store/user/weinberg/cmsdas2015/data.root");
   TFile * fqcd = TFile::Open("/eos/uscms/store/user/weinberg/cmsdas2015/qcdMc.root");
@@ -9,8 +11,8 @@
   TTree * znunu = fznunu->Get("EventTree");
   TTree * wJets = fwJets->Get("EventTree");
 
-  // Now, use
-  // .L monoPhotonAnalysis.C+
-  // .x files.C
-  // monoPhotonAnalysis adata(data);
+  monoPhotonAnalysis adata(data, "data_selection.root");
+  monoPhotonAnalysis aqcd(qcd, "qcd_selection.root");
+  monoPhotonAnalysis aznunu(znunu, "znunu_selection.root");
+  monoPhotonAnalysis awJets(wJets, "wJets_selection.root");
 }
