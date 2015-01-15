@@ -11,6 +11,8 @@ void monoPhotonAnalysis::Loop()
 {
    if (fChain == 0) return;
 
+   TFile * output = new TFile(_outFilename.c_str(), "recreate");
+   output->cd();
    TTree * outTree = fChain->GetTree()->CloneTree(0); // 0 means do not copy entries
    outTree->CopyAddresses(fChain->GetTree());
    int selectedPhoton = 0;
@@ -70,12 +72,9 @@ void monoPhotonAnalysis::Loop()
    std::cout << "Cut flow summary --------" << std::endl;
    for ( const auto& cut : cutFlow ) std::cout << setw(30) << cut.first << " : " << cut.second << " events passed." << std::endl;
 
-   TFile * output = new TFile(_outFilename.c_str(), "recreate");
-   output->cd();
    outTree->Write();
    output->Close();
    delete output;
-   delete outTree;
 }
 
 bool monoPhotonAnalysis::HasMediumPhoton(int& photonNo)
