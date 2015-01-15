@@ -14,7 +14,7 @@ void monoPhotonAnalysis::Loop()
    Long64_t nentries = fChain->GetEntriesFast();
    Long64_t npassed = 0;
    std::map<std::string, long> cutFlow;
-
+   float qcd_wgt = 0;
    Long64_t nbytes = 0, nb = 0;
    for (Long64_t jentry=0; jentry<nentries;jentry++) {
       Long64_t ientry = LoadTree(jentry);
@@ -24,8 +24,12 @@ void monoPhotonAnalysis::Loop()
 
       // first medium photon cut
       int selectedPhoton = 0;
-      if ( !HasMediumPhoton(selectedPhoton) ) continue;
-      cutFlow["medium photon"]++;
+      //if ( !HasMediumPhoton(selectedPhoton) ) continue;
+      //cutFlow["medium photon"]++;
+      
+      if ( !qcdLikePhoton(selectedPhoton ) ) 
+          continue;
+      cutFlow["qcd-like photon"]++;
 
       // Make sure MET is significant
       if ( pfMET < 90. ) continue;
@@ -43,10 +47,12 @@ void monoPhotonAnalysis::Loop()
 
       // -----  End Cut Selection -----
       npassed++;
+      qcd_wgt += (4.3865e-02 + 7.0223e-04*phoEt->at(selectedPhoton));
    }
    std::cout << "Passed " << npassed << " events out of " << nentries << std::endl;
    std::cout << "Cut flow summary --------" << std::endl;
    for ( const auto& cut : cutFlow ) std::cout << setw(30) << cut.first << " : " << cut.second << " events passed." << std::endl;
+   std::cout << setw(30) << "weighted qcd events" << " : " << qcd_wgt << " events passed." << std::endl;
 }
 
 bool monoPhotonAnalysis::HasMediumPhoton(int& photonNo)
@@ -68,7 +74,33 @@ bool monoPhotonAnalysis::HasMediumPhoton(int& photonNo)
     bool isMediumPhoton = etCut            && scEtaCut         &&  hOverECut   &&
                           sigmaIEtaIEtaCut && sigmaIPhiIPhiCut && pixelSeedCut && 
                           r9Cut && isIsolatedPhoton(i);
-                            
+    if (isMediumPhoton) {
+      nMediumPhotons++;
+      photonNo = i;
+    }
+  }
+
+  return nMediumPhotons == 1;
+}
+bool monoPhotonAnalysis::qcdLikePhoton(int& photonNo)
+{
+  int nMediumPhotons = 0;
+
+  for (int i = 0; i < nPho; i++) {
+
+    bool etCut            = phoEt->at           (i)  > 100.0;
+    bool scEtaCut         = fabs(phoSCEta->at   (i)) <   1.4442;
+    bool hOverECut        = phoHoverE->at       (i)  <   0.05;
+    bool sigmaIEtaIEtaCut = phoSigmaIEtaIEta->at(i)  >   0.001 &&
+                            phoSigmaIEtaIEta->at(i)  <   0.013;
+    bool sigmaIPhiIPhiCut = phoSigmaIPhiIPhi->at(i)  >   0.001;
+    bool pixelSeedCut     = phohasPixelSeed->at (i)  ==  0;
+    bool r9Cut            = phoR9->at           (i)  <   1.0;
+
+    // Only barrel photons, so only two bins in effective area
+    bool isMediumPhoton = etCut            && scEtaCut         &&  hOverECut   &&
+                          sigmaIEtaIEtaCut && sigmaIPhiIPhiCut && pixelSeedCut && 
+                          r9Cut && qcdLikeIsolation(i);
     if (isMediumPhoton) {
       nMediumPhotons++;
       photonNo = i;
@@ -78,6 +110,31 @@ bool monoPhotonAnalysis::HasMediumPhoton(int& photonNo)
   return nMediumPhotons == 1;
 }
 
+bool monoPhotonAnalysis::qcdLikeIsolation(int i)
+{
+  const float MAX_MED_CH_HADRON_ISO = min(5.0*2.6, 0.20*phoEt->at(i));
+  const float MAX_MED_PHOTON_ISO =  min(5.0*(1.3 + 0.005*phoEt->at(i)), 0.20*phoEt->at(i));
+  const float MAX_MED_NEU_HADRON_ISO =  min(5.0*(3.5 + 0.04*phoEt->at(i)), 0.20*phoEt->at(i));
+
+  const float MIN_MED_CH_HADRON_ISO = 2.6;
+  const float MIN_MED_NEU_HADRON_ISO = 3.5 + 0.04*phoEt->at(i);
+  const float MIN_MED_PHOTON_ISO = 1.3 + 0.005*phoEt->at(i);
+
+  auto correctedIso = [this, i](double naiveIso, std::string isoParticle)
+  {
+    return max(naiveIso - this->rho*getPhotonEffectiveArea(isoParticle, i), 0.);
+  };
+
+  bool upperIsoFromCH = correctedIso(phoPFChWorstIso->at(i), "worst charged hadron") < MAX_MED_CH_HADRON_ISO;
+  bool upperIsoFromNH = correctedIso(phoPFNeuIso->at(i), "neutral hadron") < MAX_MED_NEU_HADRON_ISO;
+  bool upperIsoFromPho = correctedIso(phoPFPhoIso->at(i), "photon") < MAX_MED_PHOTON_ISO;
+
+  bool lowerIsoFromCH = correctedIso(phoPFChWorstIso->at(i), "worst charged hadron") > MIN_MED_CH_HADRON_ISO;
+  bool lowerIsoFromNH = correctedIso(phoPFNeuIso->at(i), "neutral hadron") > MIN_MED_NEU_HADRON_ISO;
+  bool lowerIsoFromPho = correctedIso(phoPFPhoIso->at(i), "photon") > MIN_MED_PHOTON_ISO;
+  return (lowerIsoFromCH || lowerIsoFromNH || lowerIsoFromPho) && 
+         (upperIsoFromCH && upperIsoFromNH && upperIsoFromPho);
+}
 bool monoPhotonAnalysis::electronVeto(const int photonNo)
 {
   for (int i=0; i < nEle; i++)
@@ -89,7 +146,7 @@ bool monoPhotonAnalysis::electronVeto(const int photonNo)
     float eleAbsIso = elePFChIso->at(i) + max(0., elePFPhoIso->at(i) + elePFNeuIso->at(i) - 0.5*elePFPUIso->at(i));
 
     // Barrel and endcap quality criteria
-    if ( eleEta->at(i) < 1.479 ) 
+    if ( fabs(eleEta->at(i)) < 1.479 )
     {
       // i.   check  absolute electron dEtaAtVtx < 0.007
       // ii.  check absolute electron dPhiAtVtx < 0.15 
@@ -100,15 +157,15 @@ bool monoPhotonAnalysis::electronVeto(const int photonNo)
       // vii. electron EoverPInv < 0.05
       // viii.electron MissHits <= 1   
       // ix.  absolute isolation/electron Pt < 0.15 
-      if ( eledEtaAtVtx->at(i) > 0.007 ) continue;
-      if ( eledPhiAtVtx->at(i) > 0.15 ) continue;
-      if ( eleSigmaIEtaIEta_2012->at(i) > 0.01 ) continue;
-      if ( eleHoverE->at(i) > 0.12 ) continue;
-      if ( fabs(eleD0->at(i)) > 0.02 ) continue;
-      if ( fabs(eleDz->at(i)) > 0.2 ) continue;
-      if ( eleEoverPInv->at(i) > 0.05 ) continue;
-      if ( eleMissHits->at(i) > 1 ) continue;
-      if ( eleAbsIso/elePt->at(i) > 0.15 ) continue;
+      if ( ! eledEtaAtVtx->at(i) < 0.007 ) continue;
+      if ( ! eledPhiAtVtx->at(i) < 0.15 ) continue;
+      if ( ! eleSigmaIEtaIEta_2012->at(i) < 0.01 ) continue;
+      if ( ! eleHoverE->at(i) < 0.12 ) continue;
+      if ( ! fabs(eleD0->at(i)) < 0.02 ) continue;
+      if ( ! fabs(eleDz->at(i)) < 0.2 ) continue;
+      if ( ! eleEoverPInv->at(i) < 0.05 ) continue;
+      if ( ! eleMissHits->at(i) <= 1 ) continue;
+      if ( ! eleAbsIso/elePt->at(i) < 0.15 ) continue;
     }
     else
     {
@@ -121,15 +178,15 @@ bool monoPhotonAnalysis::electronVeto(const int photonNo)
       // vii. electron EoverPInv < 0.05
       // viii.electron MissHits <=1 
       // ix.  absolute isolation/electron Pt < 0.10
-      if ( eledEtaAtVtx->at(i) > 0.009 ) continue;
-      if ( eledPhiAtVtx->at(i) > 0.10 ) continue;
-      if ( eleSigmaIEtaIEta_2012->at(i) > 0.03 ) continue;
-      if ( eleHoverE->at(i) > 0.10 ) continue;
-      if ( fabs(eleD0->at(i)) > 0.02 ) continue;
-      if ( fabs(eleDz->at(i)) > 0.02 ) continue;
-      if ( eleEoverPInv->at(i) > 0.05 ) continue;
-      if ( eleMissHits->at(i) > 1 ) continue;
-      if ( eleAbsIso/elePt->at(i) > 0.10 ) continue;
+      if ( ! eledEtaAtVtx->at(i) < 0.009 ) continue;
+      if ( ! eledPhiAtVtx->at(i) < 0.10 ) continue;
+      if ( ! eleSigmaIEtaIEta_2012->at(i) < 0.03 ) continue;
+      if ( ! eleHoverE->at(i) < 0.10 ) continue;
+      if ( ! fabs(eleD0->at(i)) < 0.02 ) continue;
+      if ( ! fabs(eleDz->at(i)) < 0.02 ) continue;
+      if ( ! eleEoverPInv->at(i) < 0.05 ) continue;
+      if ( ! eleMissHits->at(i) <= 1 ) continue;
+      if ( ! eleAbsIso/elePt->at(i) < 0.10 ) continue;
     }
 
     // If electron overlaps good photon, skip

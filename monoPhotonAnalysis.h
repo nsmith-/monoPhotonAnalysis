@@ -402,6 +402,9 @@ public :
    float            deltaPhi(float phi1, float phi2);
    double getPhotonEffectiveArea(std::string isoParticle, int i);
    bool isIsolatedPhoton(int i);
+   bool qcdLikeIsolation(int i);
+   bool qcdLikePhoton(int& photonNo);
+
 
    // options
    bool kUseWorstChIso = true;
