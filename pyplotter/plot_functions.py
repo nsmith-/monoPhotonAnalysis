@@ -9,8 +9,8 @@ def getHistFromFile (plot_info):
         print 'Failed to open %s' % plot_info["file_name"]
         exit(0)
     tree = file.Get(plot_info["tree_name"])
-    hist = ROOT.TH1F("hist", "Test", 1000, 90, 1500)    
-    tree.Draw("phoEt[selectedPhoton]>>hist")
+    hist = ROOT.TH1F("hist", "Test", 1000, 0, 1500)    
+    tree.Draw(plot_info["tree_var"] + ">>hist")
     if not hist:
         print 'Failed to get hist from file'
         exit(0)
@@ -45,10 +45,12 @@ def makePlot (hist, hist_opts, plot_info):
     canvas = getCanvas()
     hist.Draw(hist_opts)
     hist.GetXaxis().SetTitle(plot_info["xlabel"])
+    if plot_info["ylabel"] == "":
+        plot_info["ylabel"] = "Events / %s GeV" % int(hist.GetBinWidth(1))
     hist.GetYaxis().SetTitle(plot_info["ylabel"])
     hist.SetTitleOffset(1.3, "y")
     hist.SetTitleOffset(1.1, "x")
-    setTDRStyle(canvas, 100, 13, plot_info["printCMS"]) 
+    setTDRStyle(canvas, 1, 13, plot_info["printCMS"]) 
     canvas.cd()
     canvas.Update()
     canvas.RedrawAxis()
@@ -63,7 +65,7 @@ def setTDRStyle(canvas, luminosity, energy, printCMS):
     tdrstyle.setTDRStyle() 
     if printCMS == "right" or printCMS == "left":
         if energy == 13:
-            CMS_lumi.lumi_13TeV = "%s fb^{-1} MC" % luminosity
+            CMS_lumi.lumi_13TeV = "%s fb^{-1}" % luminosity
             if printCMS == "left":
                 iPos = 11
             else:
@@ -100,8 +102,10 @@ def getBasicParser():
     #                    help="Name of root file in which histogram is stored.")
     parser.add_argument('-o', '--output_file', type=str, required=True,
                         help="Name produced plot file (type pdf/png/jpg etc.).")
-    parser.add_argument('-t', '--tree_name', type=str, required=True, 
+    parser.add_argument('-t', '--tree_name', type=str, required=False, default="EventTree",
                         help="Plot group (folder in root file)")  
+    parser.add_argument('-v', '--tree_var', type=str, required=False,
+                        help="Variable name in root tree")  
     parser.add_argument('--xlabel', type=str, required=False, default="", 
                         help="x axis label")
     parser.add_argument('--ylabel', type=str, required=False, default="", 

@@ -40,7 +40,7 @@ def CMS_lumi(pad,  iPeriod,  iPosX ):
     if( iPosX==0    ): alignY_=1
     if( iPosX/10==1 ): alignX_=1
     if( iPosX/10==2 ): alignX_=2
-    if( iPosX/10==3 ): alignX_=3
+    if( iPosX/10==3 ): alignX_=2
     align_ = 10*alignX_ + alignY_
 
     H = pad.GetWh()
@@ -113,7 +113,7 @@ def CMS_lumi(pad,  iPeriod,  iPosX ):
     elif( iPosX%10==2 ):
         posX_ =  l + 0.5*(1-l-r)
     elif( iPosX%10==3 ):
-        posX_ =  1-r - relPosX*(1-l-r)
+        posX_ =  0.92-r - relPosX*(1-l-r)
 
     posY_ = 1-t - relPosY*(1-t-b)
 
