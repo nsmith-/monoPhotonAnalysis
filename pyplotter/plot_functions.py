@@ -9,8 +9,8 @@ def getHistFromFile (plot_info):
         print 'Failed to open %s' % plot_info["file_name"]
         exit(0)
     tree = file.Get(plot_info["tree_name"])
-    hist = ROOT.TH1F("hist", "Test", 1000, 0, 100)    
-    hist = tree.Draw("phoEt[selectedPhoton] >> hist")
+    hist = ROOT.TH1F("hist", "Test", 1000, 90, 1500)    
+    tree.Draw("phoEt[selectedPhoton]>>hist")
     if not hist:
         print 'Failed to get hist from file'
         exit(0)
