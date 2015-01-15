@@ -11,8 +11,6 @@ void monoPhotonAnalysis::Loop()
 {
    if (fChain == 0) return;
 
-   TFile * output = new TFile(_outFilename.c_str(), "recreate");
-   output->cd();
    TTree * outTree = new TTree("EventTree", "Selected events");
    outTree->CopyAddresses(fChain->GetTree());
 
@@ -66,6 +64,10 @@ void monoPhotonAnalysis::Loop()
      std::cout << "nQCD = " << nQCD << std::endl;
    std::cout << "Cut flow summary --------" << std::endl;
    for ( const auto& cut : cutFlow ) std::cout << setw(30) << cut.first << " : " << cut.second << " events passed." << std::endl;
+
+   TFile * output = new TFile(_outFilename.c_str(), "recreate");
+   output->cd();
+   outTree->Write();
 }
 
 bool monoPhotonAnalysis::HasMediumPhoton(int& photonNo)
@@ -108,7 +110,7 @@ bool monoPhotonAnalysis::electronVeto(const int photonNo)
     float eleAbsIso = elePFChIso->at(i) + max(0., elePFPhoIso->at(i) + elePFNeuIso->at(i) - 0.5*elePFPUIso->at(i));
 
     // Barrel and endcap quality criteria
-    if ( eleEta->at(i) < 1.479 )
+    if ( fabs(eleEta->at(i)) < 1.479 )
     {
       // i.   check  absolute electron dEtaAtVtx < 0.007
       // ii.  check absolute electron dPhiAtVtx < 0.15
@@ -119,15 +121,15 @@ bool monoPhotonAnalysis::electronVeto(const int photonNo)
       // vii. electron EoverPInv < 0.05
       // viii.electron MissHits <= 1   
       // ix.  absolute isolation/electron Pt < 0.15 
-      if ( eledEtaAtVtx->at(i) > 0.007 ) continue;
-      if ( eledPhiAtVtx->at(i) > 0.15 ) continue;
-      if ( eleSigmaIEtaIEta_2012->at(i) > 0.01 ) continue;
-      if ( eleHoverE->at(i) > 0.12 ) continue;
-      if ( fabs(eleD0->at(i)) > 0.02 ) continue;
-      if ( fabs(eleDz->at(i)) > 0.2 ) continue;
-      if ( eleEoverPInv->at(i) > 0.05 ) continue;
-      if ( eleMissHits->at(i) > 1 ) continue;
-      if ( eleAbsIso/elePt->at(i) > 0.15 ) continue;
+      if ( ! eledEtaAtVtx->at(i) < 0.007 ) continue;
+      if ( ! eledPhiAtVtx->at(i) < 0.15 ) continue;
+      if ( ! eleSigmaIEtaIEta_2012->at(i) < 0.01 ) continue;
+      if ( ! eleHoverE->at(i) < 0.12 ) continue;
+      if ( ! fabs(eleD0->at(i)) < 0.02 ) continue;
+      if ( ! fabs(eleDz->at(i)) < 0.2 ) continue;
+      if ( ! eleEoverPInv->at(i) < 0.05 ) continue;
+      if ( ! eleMissHits->at(i) <= 1 ) continue;
+      if ( ! eleAbsIso/elePt->at(i) < 0.15 ) continue;
     }
     else
     {
@@ -140,15 +142,15 @@ bool monoPhotonAnalysis::electronVeto(const int photonNo)
       // vii. electron EoverPInv < 0.05
       // viii.electron MissHits <=1 
       // ix.  absolute isolation/electron Pt < 0.10
-      if ( eledEtaAtVtx->at(i) > 0.009 ) continue;
-      if ( eledPhiAtVtx->at(i) > 0.10 ) continue;
-      if ( eleSigmaIEtaIEta_2012->at(i) > 0.03 ) continue;
-      if ( eleHoverE->at(i) > 0.10 ) continue;
-      if ( fabs(eleD0->at(i)) > 0.02 ) continue;
-      if ( fabs(eleDz->at(i)) > 0.02 ) continue;
-      if ( eleEoverPInv->at(i) > 0.05 ) continue;
-      if ( eleMissHits->at(i) > 1 ) continue;
-      if ( eleAbsIso/elePt->at(i) > 0.10 ) continue;
+      if ( ! eledEtaAtVtx->at(i) < 0.009 ) continue;
+      if ( ! eledPhiAtVtx->at(i) < 0.10 ) continue;
+      if ( ! eleSigmaIEtaIEta_2012->at(i) < 0.03 ) continue;
+      if ( ! eleHoverE->at(i) < 0.10 ) continue;
+      if ( ! fabs(eleD0->at(i)) < 0.02 ) continue;
+      if ( ! fabs(eleDz->at(i)) < 0.02 ) continue;
+      if ( ! eleEoverPInv->at(i) < 0.05 ) continue;
+      if ( ! eleMissHits->at(i) <= 1 ) continue;
+      if ( ! eleAbsIso/elePt->at(i) < 0.10 ) continue;
     }
 
     // If electron overlaps good photon, skip
