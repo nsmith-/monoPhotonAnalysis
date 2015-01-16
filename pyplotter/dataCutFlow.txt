@@ -1,7 +1,0 @@
-Passed 271 events out of 4519553
-Cut flow summary --------
-                      deltaPhi : 273 events passed.
-                 electron veto : 273 events passed.
-                 medium photon : 500 events passed.
-                     muon veto : 271 events passed.
-                    pfMET > 90 : 281 events passed.

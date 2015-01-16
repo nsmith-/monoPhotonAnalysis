@@ -1,0 +1,47 @@
+
+  monoPhotonAnalysis adata(data, "data_selection.root");
+  monoPhotonAnalysis aqcd(qcd, "qcd_selection.root");
+  monoPhotonAnalysis aznunu(znunu, "znunu_selection.root");
+  monoPhotonAnalysis awJets(wJets, "wJets_selection.root");
+  monoPhotonAnalysis asig(signal, "signal_selection.root");
+
+Processed 4510000 / 4519553 events ( 99.8%)
+Passed 271 events out of 4519553
+Cut flow summary --------
+                      deltaPhi : 273 events passed.
+                 electron veto : 273 events passed.
+                 medium photon : 500 events passed.
+                     muon veto : 271 events passed.
+                    pfMET > 90 : 281 events passed.
+Processed  480000 /  487072 events ( 98.5%)
+Passed 7 events out of 487072
+Cut flow summary --------
+                      deltaPhi : 7 events passed.
+                 electron veto : 7 events passed.
+                 medium photon : 211 events passed.
+                     muon veto : 7 events passed.
+                    pfMET > 90 : 13 events passed.
+Processed   40000 /   50000 events ( 80.0%)
+Passed 18635 events out of 50000
+Cut flow summary --------
+                      deltaPhi : 18643 events passed.
+                 electron veto : 18643 events passed.
+                 medium photon : 19269 events passed.
+                     muon veto : 18635 events passed.
+                    pfMET > 90 : 18821 events passed.
+Processed 5940000 / 5941270 events ( 100.0%)
+Passed 7 events out of 5941270
+Cut flow summary --------
+                      deltaPhi : 8 events passed.
+                 electron veto : 8 events passed.
+                 medium photon : 74 events passed.
+                     muon veto : 7 events passed.
+                    pfMET > 90 : 18 events passed.
+Processed   40000 /   50000 events ( 80.0%)
+Passed 23196 events out of 50000
+Cut flow summary --------
+                      deltaPhi : 23204 events passed.
+                 electron veto : 23204 events passed.
+                 medium photon : 23797 events passed.
+                     muon veto : 23196 events passed.
+                    pfMET > 90 : 23274 events passed.
