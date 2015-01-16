@@ -2,15 +2,17 @@ import ROOT
 import CMS_lumi, tdrstyle
 
 # what to draw
-label = "#Delta#phi (#gamma-MET)"
-drawString = "abs(deltaPhi_PhoMET)"
+#label = "MET"
+#drawString = "pfMET"
+label = "#gamma E_{T}"
+drawString = "phoEt[selectedPhoton]"
 cutString = ""
-xrange = [0, 4]
-yrange = [0, 1]
-fill = False
-normalize = True
+xrange = [100, 1100]
+yrange = [0, 100]
+fill = True
+normalize = False
 # qcd znunu wJet sig
-colors = [ROOT.kGreen, ROOT.kBlue, ROOT.kGray, ROOT.kRed]
+colors = [ROOT.kGreen-5, ROOT.kBlue-6, ROOT.kGray, ROOT.kRed]
 
 tdrstyle.setTDRStyle()
 
@@ -47,7 +49,7 @@ if ( fill ) : hznunu.SetFillColor(colors[1])
 hznunu.SetLineColor(colors[1])
 
 wJets.Draw(drawString+">>wJets", cutString, "goff")
-if ( fill ) : hwJets.SetFillColor(ROOT.kGreen)
+if ( fill ) : hwJets.SetFillColor(colors[2])
 hwJets.SetLineColor(colors[2])
 
 signal.Draw(drawString+">>signal", cutString, "goff")
@@ -89,7 +91,7 @@ legend.AddEntry(hdata, "Data", "ep")
 legend.AddEntry(hqcd, "QCD", "f")
 legend.AddEntry(hznunu, "Z#nu#nu", "f")
 legend.AddEntry(hwJets, "W+Jets", "f")
-legend.AddEntry(hsignal, "Signal", "l")
+legend.AddEntry(hsignal, "SM+ADD(n_{ED}=2, M_{D}=3)", "l")
 legend.SetBorderSize(0)
 legend.SetFillColor(0)
 legend.Draw()
