@@ -1,6 +1,17 @@
 import ROOT
 import CMS_lumi, tdrstyle
 
+# what to draw
+label = "#Delta#phi (#gamma-MET)"
+drawString = "abs(deltaPhi_PhoMET)"
+cutString = ""
+xrange = [0, 4]
+yrange = [0, 1]
+fill = False
+normalize = True
+# qcd znunu wJet sig
+colors = [ROOT.kGreen, ROOT.kBlue, ROOT.kGray, ROOT.kRed]
+
 tdrstyle.setTDRStyle()
 
 fdata = ROOT.TFile("../data_selection.root")
@@ -18,38 +29,45 @@ signal = fsig.Get("EventTree")
 canvas = ROOT.TCanvas("canvas", "canvas")
 stack = ROOT.THStack("stack", "")
 
-hdata = ROOT.TH1F("data", "Data", 20, 100, 1300)
-hqcd = ROOT.TH1F("qcd", "QCD", 20, 100, 1300)
-hznunu = ROOT.TH1F("znunu", "Z#nu#nu", 20, 100, 1300)
-hwJets = ROOT.TH1F("wJets", "W+Jets", 20, 100, 1300)
-hsignal = ROOT.TH1F("signal", "Signal", 20, 100, 1300)
-
-# what to draw
-label = "Photon ET"
-drawString = "phoEt[selectedPhoton]"
-cutString = ""
+hdata = ROOT.TH1F("data", "Data", 20, xrange[0], xrange[1])
+hqcd = ROOT.TH1F("qcd", "QCD", 20, xrange[0], xrange[1])
+hznunu = ROOT.TH1F("znunu", "Z#nu#nu", 20, xrange[0], xrange[1])
+hwJets = ROOT.TH1F("wJets", "W+Jets", 20, xrange[0], xrange[1])
+hsignal = ROOT.TH1F("signal", "Signal", 20, xrange[0], xrange[1])
 
 data.Draw(drawString+">>data", cutString, "goff")
 hdata.SetMarkerStyle(ROOT.kFullCircle)
 
 qcd.Draw(drawString+">>qcd", cutString, "goff")
-hqcd.SetFillColor(ROOT.kBlue)
+if ( fill ) : hqcd.SetFillColor(colors[0])
+hqcd.SetLineColor(colors[0])
 
 znunu.Draw(drawString+">>znunu", cutString, "goff")
-hznunu.SetFillColor(ROOT.kRed)
+if ( fill ) : hznunu.SetFillColor(colors[1])
+hznunu.SetLineColor(colors[1])
 
 wJets.Draw(drawString+">>wJets", cutString, "goff")
-hwJets.SetFillColor(ROOT.kGreen)
+if ( fill ) : hwJets.SetFillColor(ROOT.kGreen)
+hwJets.SetLineColor(colors[2])
 
 signal.Draw(drawString+">>signal", cutString, "goff")
-hsignal.SetLineColor(ROOT.kRed)
+hsignal.SetLineColor(colors[3])
 hsignal.SetLineStyle(ROOT.kDashed)
 
 # rescale MC
-hqcd.Scale(13/hqcd.Integral())
-hznunu.Scale(193/hznunu.Integral())
-hwJets.Scale(5/hwJets.Integral())
-hsignal.Scale(60/hsignal.Integral())
+if ( normalize ) :
+  hqcd.Scale(1/hqcd.Integral())
+  hznunu.Scale(1/hznunu.Integral())
+  hwJets.Scale(1/hwJets.Integral())
+  hsignal.Scale(1/hsignal.Integral())
+  hdata.Sumw2()
+  hdata.Scale(1/hdata.Integral())
+
+else :
+  hqcd.Scale(13/hqcd.Integral())
+  hznunu.Scale(193/hznunu.Integral())
+  hwJets.Scale(5/hwJets.Integral())
+  hsignal.Scale(60/hsignal.Integral())
 
 bgDraw = ""
 stack.Add(hqcd, bgDraw)
@@ -57,7 +75,9 @@ stack.Add(hwJets, bgDraw)
 stack.Add(hznunu, bgDraw)
 stack.Add(hsignal, bgDraw)
 
-stack.SetMaximum(120)
+stack.SetMinimum(yrange[0])
+stack.SetMaximum(yrange[1])
+#stack.Draw("nostack")
 stack.Draw()
 hdata.Draw("E same")
 
