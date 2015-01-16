@@ -37,18 +37,44 @@ def addHistToStack (hist_stack, plot_info, hist_opts, line_color, fill_color):
     hist_stack.Add(hist, hist_opts)
 def makePlot (hist, hist_opts, plot_info):
     #legend = ROOT.TLegend(.5 ,.65 ,.885 ,.875)
+    canvas = getCanvas()
+    if plot_info["logy"]:
+        canvas.SetLogy()
+    if plot_info["logx"]:
+        canvas.SetLogx()
+    setTDRStyle(canvas, 1, 13, plot_info["printCMS"]) 
+    #draw the lumi text on the canvas
+    hist.Draw("nostack")
+    hist.GetXaxis().SetTitle(plot_info["xlabel"])
+    if plot_info["ylabel"] == "":
+        plot_info["ylabel"] = "Events / %s GeV" % int(hist.GetBinWidth(1))
+    #hist.GetYaxis().SetTitle(plot_info["ylabel"])
+    #hist.SetTitleOffset(1.3, "y")
+    #hist.SetTitleOffset(1.1, "x")
+    canvas.cd()
+    canvas.Update()
+    canvas.RedrawAxis()
+    #frame = canvas.GetFrame()
+    #frame.Draw()
+    #legend.SetFillColor(ROOT.kWhite)
+    #legend.AddEntry(hist, legendName)
+
+    #legend.Draw("same")
+    canvas.Print(plot_info["output_file"]) 
+def makeStackPlots (stacked, unstacked, hist_opts, plot_info):
+    #legend = ROOT.TLegend(.5 ,.65 ,.885 ,.875)
+    canvas = getCanvas()
     if plot_info["logy"]:
         canvas.SetLogy()
     if plot_info["logx"]:
         canvas.SetLogx()
     #draw the lumi text on the canvas
-    canvas = getCanvas()
-    hist.Draw(hist_opts)
-    hist.GetXaxis().SetTitle(plot_info["xlabel"])
+    hist1.Draw(hist_opts)
+    hist1.GetXaxis().SetTitle(plot_info["xlabel"])
     if plot_info["ylabel"] == "":
         plot_info["ylabel"] = "Events / %s GeV" % int(hist.GetBinWidth(1))
-    hist.GetYaxis().SetTitle(plot_info["ylabel"])
-    hist.SetTitleOffset(1.3, "y")
+    hist1.GetYaxis().SetTitle(plot_info["ylabel"])
+    hist1.SetTitleOffset(1.3, "y")
     hist.SetTitleOffset(1.1, "x")
     setTDRStyle(canvas, 1, 13, plot_info["printCMS"]) 
     canvas.cd()
@@ -61,6 +87,7 @@ def makePlot (hist, hist_opts, plot_info):
 
     #legend.Draw("same")
     canvas.Print(plot_info["output_file"]) 
+
 def setTDRStyle(canvas, luminosity, energy, printCMS):
     tdrstyle.setTDRStyle() 
     if printCMS == "right" or printCMS == "left":
