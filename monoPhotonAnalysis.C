@@ -17,6 +17,8 @@ void monoPhotonAnalysis::Loop()
    outTree->CopyAddresses(fChain->GetTree());
    int selectedPhoton = 0;
    outTree->Branch("selectedPhoton", &selectedPhoton);
+   float deltaPhi_PhoMET = 0;
+   outTree->Branch("deltaPhi_phoMET", &deltaPhi_PhoMET);
 
    Long64_t nentries = fChain->GetEntriesFast();
    Long64_t npassed = 0;
@@ -51,7 +53,8 @@ void monoPhotonAnalysis::Loop()
       cutFlow["pfMET > 90"]++;
 
       // photon and MET should be back to back
-      if ( fabs(deltaPhi(pfMETPhi, phoPhi->at(selectedPhoton))) < 2. ) continue;
+      deltaPhi_PhoMET = deltaPhi(pfMETPhi, phoPhi->at(selectedPhoton));
+      if ( fabs(deltaPhi_PhoMET) < 2. ) continue;
       cutFlow["deltaPhi"]++;
 
       // Veto event if electron or muon
