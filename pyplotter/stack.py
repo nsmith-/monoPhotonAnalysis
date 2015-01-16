@@ -3,10 +3,10 @@ import numpy
 import CMS_lumi, tdrstyle
 
 # what to draw
-label = "#slash{E}_{T} [GeV]"
-drawString = "pfMET"
-#label = "E_{T}^{#gamma} [GeV]"
-#drawString = "phoEt[selectedPhoton]"
+#label = "#slash{E}_{T} [GeV]"
+#drawString = "pfMET"
+label = "E_{T}^{#gamma} [GeV]"
+drawString = "phoEt[selectedPhoton]"
 cutString = ""
 xrange = [100, 1100]
 yrange = [0.1, 100]
