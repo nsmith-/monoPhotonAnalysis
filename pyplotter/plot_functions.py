@@ -98,7 +98,7 @@ def setTDRStyle(canvas, luminosity, energy, printCMS):
             else:
                 iPos = 13
             CMS_lumi.writeExtraText = 1
-            CMS_lumi.extraText = "Preliminary"
+            CMS_lumi.extraText = "Very Preliminary"
             CMS_lumi.CMS_lumi(canvas, 4, iPos)
 def getCanvas():
     H_ref = 600; 
@@ -128,9 +128,9 @@ def getBasicParser():
     #parser.add_argument('-n', '--file_name', type=str, required=True, 
     #                    help="Name of root file in which histogram is stored.")
     parser.add_argument('-o', '--output_file', type=str, required=True,
-                        help="Name produced plot file (type pdf/png/jpg etc.).")
+                        help="Name of produced plot file (type pdf/png/jpg etc.).")
     parser.add_argument('-t', '--tree_name', type=str, required=False, default="EventTree",
-                        help="Plot group (folder in root file)")  
+                        help="Name of root tree)")  
     parser.add_argument('-v', '--tree_var', type=str, required=False,
                         help="Variable name in root tree")  
     parser.add_argument('--xlabel', type=str, required=False, default="", 
