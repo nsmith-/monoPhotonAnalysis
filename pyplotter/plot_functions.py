@@ -38,13 +38,14 @@ def addHistToStack (hist_stack, plot_info, hist_opts, line_color, fill_color):
 def makePlot (hist, hist_opts, plot_info):
     #legend = ROOT.TLegend(.5 ,.65 ,.885 ,.875)
     canvas = getCanvas()
+    setTDRStyle(canvas, 1, 13, plot_info["printCMS"]) 
     if plot_info["logy"]:
         canvas.SetLogy()
     if plot_info["logx"]:
         canvas.SetLogx()
-    setTDRStyle(canvas, 1, 13, plot_info["printCMS"]) 
     #draw the lumi text on the canvas
-    hist.Draw("nostack")
+    hist.Draw(hist_opts)
+    setTDRStyle(canvas, 1, 13, plot_info["printCMS"]) 
     hist.GetXaxis().SetTitle(plot_info["xlabel"])
     if plot_info["ylabel"] == "":
         plot_info["ylabel"] = "Events / %s GeV" % int(hist.GetBinWidth(1))
@@ -98,7 +99,7 @@ def setTDRStyle(canvas, luminosity, energy, printCMS):
             else:
                 iPos = 13
             CMS_lumi.writeExtraText = 1
-            CMS_lumi.extraText = "Very Preliminary"
+            CMS_lumi.extraText = "Preliminary"
             CMS_lumi.CMS_lumi(canvas, 4, iPos)
 def getCanvas():
     H_ref = 600; 

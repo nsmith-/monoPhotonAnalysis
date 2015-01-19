@@ -7,7 +7,6 @@ import operator
 
 def main():
     plot_info = getPlotArgs()
-    canvas = ROOT.TCanvas("canvas", "canvas", 800, 600)
 
     cut_flow_vars = ["No cuts", "Medium Photon ID", "pfMET > 90 GeV",  "#Delta#phi > 2",
                     "e veto", "#mu veto"]
@@ -26,12 +25,11 @@ def main():
     i = 0
     colors = [ROOT.kBlack, ROOT.kRed-4, ROOT.kBlue-4, ROOT.kGreen-5, ROOT.kYellow+8]
     canvas = plotter.getCanvas()
-    #if plot_info["logy"]:
-    #    canvas.SetLogy()
-    if plot_info["logx"]:
-        canvas.SetLogx()
+    plotter.setTDRStyle(canvas, 1, 13, plot_info["printCMS"]) 
+    
     names = ["Data", "W+jets", "QCD", "Z(#nu#nu)#gamma"] 
-    legend = ROOT.TLegend(0.65, 0.7, 0.95, 0.85)
+    
+    legend = ROOT.TLegend(0.50, 0.6, 0.90, 0.80)
     legend.SetBorderSize(0)
     legend.SetFillColor(0)
     hist = {}
@@ -48,18 +46,29 @@ def main():
     for i in range(0, len(cut_flow_vars)):
         stacked_hist.GetXaxis().SetBinLabel(i+1, cut_flow_vars[i])
        #draw the lumi text on the canvas
+    if plot_info["logy"]:
+        canvas.SetLogy()
+    if plot_info["logx"]:
+        canvas.SetLogx()
+    stacked_hist.Draw("nostack")
+    legend.Draw()
+    #draw the lumi text on the canvas
+    plotter.setTDRStyle(canvas, 1, 13, plot_info["printCMS"]) 
     stacked_hist.GetXaxis().SetTitle(plot_info["xlabel"])
     if plot_info["ylabel"] == "":
         plot_info["ylabel"] = "Events / %s GeV" % int(hist.GetBinWidth(1))
-    #hist.GetYaxis().SetTitle(plot_info["ylabel"])
+    stacked_hist.GetYaxis().SetTitle(plot_info["ylabel"])
     #hist.SetTitleOffset(1.3, "y")
     #hist.SetTitleOffset(1.1, "x")
-    plotter.setTDRStyle(canvas, 1, 13, plot_info["printCMS"]) 
-    stacked_hist.Draw("nostack")
-    #legend.Draw() 
     canvas.cd()
     canvas.Update()
     canvas.RedrawAxis()
+    #frame = canvas.GetFrame()
+    #frame.Draw()
+    #legend.SetFillColor(ROOT.kWhite)
+    #legend.AddEntry(hist, legendName)
+
+    #legend.Draw("same")
     canvas.Print(plot_info["output_file"]) 
 
 def getCutFlowHist(names, values, wgt, plot_info, color):
